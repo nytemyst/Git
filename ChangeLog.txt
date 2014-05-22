@@ -1,0 +1,6 @@
+05/21/2014
+Cleric.Mac - Added the ability to put tanks in a group at a higher healing piority. If turned on and a tank is 25% less then the healing point it will heal the tank no matter the health of the other people in the group.
+Cleric.Mac - Added to rezzing routine to rez all tanks after clerics but before everybody else.
+Cleric.Mac - Change announcement rez to take away corpse.
+Cleric.Mac - Added the ability to only Raidbuff when out of combat. Good for wipes when recoverying but not to take away from healing when actually doing the event.
+General.inc - Tweaked the RaidBuff routine a bit.

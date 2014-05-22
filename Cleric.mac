@@ -150,6 +150,7 @@ Sub HealTank
 
 Sub Heal(int MyHealth,int MyTarget,MyClass)
 /declare AnybodyHurt int local 0
+/declare FoundTank bool Local FALSE
 /varset MacroState Heal
 /varset WorstHurt NULL
 /varset WorstHP 100
@@ -174,8 +175,12 @@ Sub Heal(int MyHealth,int MyTarget,MyClass)
 }
 /if (${Group}) {
 	/for X 0 to ${Group.Members}
-	/if ((${Group.Member[${X}].Type.Equal[pc]} || ${Group.Member[${X}].Type.Equal[Mercenary]}) && !${Group.Member[${X}].Dead} && ${Group.Member[${X}].ID} && ${Group.Member[${X}].PctHPs}<=${WorstHP} && ${Group.Member[${X}].Distance}<=${Spell[${HealSpell}].MyRange} && ${Group.Member[${X}].PctHPs}<=${${Group.Member[${X}].Class.ShortName}Point}) {
-		/multiline ; /varset WorstHurtID ${Group.Member[${X}].ID}; /varset WorstHurt ${Group.Member[${X}].Name}; /varset WorstHP ${Group.Member[${X}].PctHPs}; /varset WorstClass ${Group.Member[${X}].Class.ShortName}; /varset AnybodyHurt 1
+	/if ((${Group.Member[${X}].Type.Equal[pc]} || ${Group.Member[${X}].Type.Equal[Mercenary]}) && !${Group.Member[${X}].Dead} && ${Group.Member[${X}].ID} && ${Group.Member[${X}].PctHPs}<=${WorstHP} && ${Group.Member[${X}].Distance}<=${Spell[${HealSpell}].MyRange} && ${Group.Member[${X}].PctHPs}<=${${Group.Member[${X}].Class.ShortName}Point} && !${FoundTank}) {
+		/if (${HealTanksFirst} && ${Select[${Group.Member[${X}].Class.ShortName},SHD,WAR,PAL]} && ${Group.Member[${X}].PctHPs} <= ${Math.Calc[${${Group.Member[${X}].Class.ShortName}Point}-(${${Group.Member[${X}].Class.ShortName}Point}*.25)]}) {
+			/multiline ; /varset WorstHurtID ${Group.Member[${X}].ID}; /varset WorstHurt ${Group.Member[${X}].Name}; /varset WorstHP ${Group.Member[${X}].PctHPs}; /varset WorstClass ${Group.Member[${X}].Class.ShortName}; /varset AnybodyHurt 1; /varset FoundTank TRUE; 
+		} else {
+			/multiline ; /varset WorstHurtID ${Group.Member[${X}].ID}; /varset WorstHurt ${Group.Member[${X}].Name}; /varset WorstHP ${Group.Member[${X}].PctHPs}; /varset WorstClass ${Group.Member[${X}].Class.ShortName}; /varset AnybodyHurt 1
+		}	
 	}
 	/if (!${Group.Member[${X}].Dead} && ${Group.Member[${X}].PctHPs}<=${${Group.Member[${X}].Class.ShortName}Point} && ${Group.Member[${X}].Type.NotEqual[Corpse]} && ${Group.Member[${X}].Distance}<=${Spell[${GroupHeal}].AERange}) /varcalc MajorHurt ${MajorHurt}+1
 	/doevents
@@ -479,21 +484,30 @@ Sub BattleRez
 	/if (!${corpsetimer${NearestSpawn[${i},Corpse Guild zradius 75 radius 110 class cleric].ID}}) {
 		/varset RezID ${NearestSpawn[${i},Corpse Guild zradius 75 radius 110 class cleric].ID}
 		/if (${DivineRezCleric} && ${Me.AltAbilityReady[Divine Resurrection]}) {
-			/if (${AnnounceRez}) /${RezChannel} Rezzing ${Spawn[${RezID}].CleanName}
+			/if (${AnnounceRez}) /${RezChannel} Rezzing ${Spawn[${RezID}].DisplayName}
 			/call RezTarget ${RezID} "Divine Resurrection"		
 		} else {
-		/if (${AnnounceRez}) /${RezChannel} Rezzing ${Spawn[${RezID}].CleanName}
+			/if (${AnnounceRez}) /${RezChannel} Rezzing ${Spawn[${RezID}].DisplayName}
 			/call RezTarget ${RezID} "Blessing of Resurrection"
 		}
 		/return
 	}
 	/next i
+} else /if (${SpawnCount[corpse Guild zradius 75 radius 110 tank]}) {
+		/for i 1 to ${SpawnCount[Corpse Guild zradius 75 radius 110 tank]}
+		/if (!${corpsetimer${NearestSpawn[${i},Corpse Guild zradius 75 radius 110 tank].ID}}) {
+			/varset RezID ${NearestSpawn[${i},Corpse Guild zradius 75 radius 110 tank].ID}
+			/if (${AnnounceRez}) /${RezChannel} Rezzing ${Spawn[${RezID}].DisplayName}
+			/call RezTarget ${RezID} "Blessing of Resurrection"
+		/return
+	}
+	/next i
 } else /if (${SpawnCount[corpse Guild zradius 75 radius 110]}) {
-	/for i 1 to ${SpawnCount[Corpse Guild zradius 75 radius 110]}
-	/if (!${corpsetimer${NearestSpawn[${i},Corpse Guild zradius 75 radius 110].ID}}) {
-		/varset RezID ${NearestSpawn[${i},Corpse Guild zradius 75 radius 110].ID}
-		/if (${AnnounceRez}) /${RezChannel} Rezzing ${Spawn[${RezID}].CleanName}
-		/call RezTarget ${RezID} "Blessing of Resurrection"
+		/for i 1 to ${SpawnCount[Corpse Guild zradius 75 radius 110]}
+		/if (!${corpsetimer${NearestSpawn[${i},Corpse Guild zradius 75 radius 110].ID}}) {
+			/varset RezID ${NearestSpawn[${i},Corpse Guild zradius 75 radius 110].ID}
+			/if (${AnnounceRez}) /${RezChannel} Rezzing ${Spawn[${RezID}].DisplayName}
+			/call RezTarget ${RezID} "Blessing of Resurrection"
 		/return
 	}
 	/next i
@@ -895,6 +909,7 @@ Sub GeneralDeclares
 /Call DeclareIniVar DivineRezCleric int Settings 0
 /call DeclareIniVar AnnounceRez int Settings 0
 /call DeclareIniVar RezChannel string Settings "4"
+/call DeclareIniVar HealTanksFirst string HealingTweaks 0 /healtanksfirst
 /declare healspellrange int outer ${Spell[${HealSpell}].MyRange}
 /declare patchhealrange int outer ${Spell[${patchheal}].MyRange}
 /declare pethealspellrange int outer ${Spell[${pethealspell}].MyRange}}

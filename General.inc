@@ -120,10 +120,6 @@ Sub AutoAdjustExp
 
 Sub Leash
 /varset MacroState Leash
-|// Daphris' Debilitating Energy
-|// Feonyss' Debilitating Energy
-|// Selistras' Debilitating Energy
-|// Therias' Debilitating Energy
 /doevents Zone
 /if (${DoLeashToon} && ${Spawn[pc ${DoLeashToonName}].ID} && !${Spawn[pc ${DoLeashToonName}].Dead}) /return
   /if (${Math.Distance[${Me.Y},${Me.X}:${stakeY},${stakeX}]}>${leashlength} && ${currentZone} == ${Zone.ID}) {
@@ -153,7 +149,6 @@ Sub Leash
 
 Sub Obstacle
    /varset MacroState Obstacle
-   /stand
    /doevents
    /if (${Died} || ${Me.Dead}) /return
    /echo Obstacle detected, moving around it
@@ -420,6 +415,14 @@ Sub Event_IRC(string ChatType,string Sender,string ChatText,string Extra)
    }
    /if (${DoBuffTotal} && ${Sender.NotEqual[${Me.CleanName}]} && ${Spawn[pc ${Sender}].ID} && ${BuffList.Find[${Me.Class.Name}]}) {
      /call CheckDoBuffs "${Sender}" "${ChatText}"
+   }
+   /if (${ChatText.Equal[CloseWindows]}) {
+	/keypress esc
+	/keypress esc
+	/keypress esc
+	/keypress esc
+	/keypress esc
+	/keypress esc
    }
    /return
 
@@ -1058,7 +1061,6 @@ Sub RaidBuff
 /declare i int local
 /declare x int local
 /declare y int local
-/declare Stacks bool TRUE
 /declare RaidMemberID int local
 /declare RaidBuffID int local
 /if (${Raid.Members} && ${Me.PctMana} > 10) {
@@ -1074,17 +1076,16 @@ Sub RaidBuff
 			/target ID ${RaidMemberID}
 			/delay 3 ${Target.ID}==${RaidMemberID}
 			/delay 3 ${Target.BuffCount}
-			/varset Stacks TRUE
 			/for y 1 to ${Target.BuffCount}
-			/if (!${Spell[${Target.Buff[${y}]}].WillStack[${RaidBuffID}]} && ${Target.Buff[${y}].ID}) {
-				/varset Stacks FALSE
-				/echo ${Spell[${RaidBuffID}].Name} doesn't stack with ${Target.Buff[${y}]} on ${Target.Name}
-			}
-			/next y
-			/if (!${Stacks} || ${Target.Buff[${RaidBuff${x}}].ID} || ${Target.Buff[${RaidBuff${x}} rk. ii].ID} || ${Target.Buff[${RaidBuff${x}} rk. iii].ID} || ${RaidBuffCast${x}.Find[${Target.Buff[${RaidBuffCast${x}}]}]}) {	
+			/if (!${Spell[${Target.Buff[${y}]}].WillStack[${Spell[${RaidBuffID}].Name}]} && ${Target.Buff[${y}].ID}) {
 				/call CreateTimer RaidBuffTimer${RaidBuffID}${RaidMemberID} ${Spell[${RaidBuffID}].Duration.TotalSeconds}s
 				/goto :next
-			} else { 
+			}
+			/next y
+			/if (${Target.Buff[${RaidBuff${x}}].ID} || ${Target.Buff[${RaidBuff${x}} rk. ii].ID} || ${Target.Buff[${RaidBuff${x}} rk. iii].ID} || ${RaidBuff${x}.Find[${Target.Buff[${RaidBuff${x}}]}]}) {	
+				/call CreateTimer RaidBuffTimer${RaidBuffID}${RaidMemberID} ${Spell[${RaidBuffID}].Duration.TotalSeconds}s
+				/goto :next
+			} else { 		
 				/call castSpell "${RaidBuffCast${x}}" ${BuffGem} ${RaidMemberID}
 				/call CreateTimer RaidBuffTimer${RaidBuffID}${RaidMemberID} ${Spell[${RaidBuffID}].Duration.TotalSeconds}s
 				/delay 1
