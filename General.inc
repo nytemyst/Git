@@ -347,8 +347,8 @@ Sub Event_IRC(string ChatType,string Sender,string ChatText,string Extra)
 	 /delay 1s ${Target.ID} == ${Me.ID}
    	/alt activate 1210
 	/if (${Me.Class.Name.Equal[Cleric]}) {
-	 /delay 6
-	 /call castspell "Group Perfected invisibility To Undead" alt ${Me.ID}
+	 /delay 4
+	 /alt activate 1212
 	}
    	/delay 1s
   }
@@ -396,7 +396,11 @@ Sub Event_IRC(string ChatType,string Sender,string ChatText,string Extra)
    /if (${ChatText.Equal[rc]} && ${CureList.Find[${Me.Class.Name}]}) {
       /if (${Me.AltAbilityReady[radiant cure]}) /call Cast "radiant cure" alt
    }
-   /if (${ChatText.Equal[port]} && ${FindItem[fellowship registration insignia].ID}) /call cast "fellowship registration insignia" item 1s
+   /if (${ChatText.Equal[port]} && ${FindItem[fellowship registration insignia].ID}) {
+      /echo Going to port away to campfire!
+	  /call CastItemClicky "fellowship registration insignia" 
+	  /return
+   }
    /if (${ChatText.Arg[1, ].Equal[tank]} && ${Me.Class.Name.Equal[cleric]}) {
       /echo Changing Tank to ${ChatText.Arg[2, ]}
       /varset tankname ${ChatText.Arg[2, ]}
@@ -488,16 +492,19 @@ Sub MemSpell(SpellName,SpellGem)
 
 Sub MedTime
 /varset MacroState MedTime
-   /if (${autosit} && !${Bool[${Me.Sitting}]} && !${Me.Casting.ID} && !${Me.Moving} && !${Me.CombatState.Equal[combat]} && (!${SpawnCount[npc los range 5 110 radius 50 zradius 15]} || ${SpawnCount[npc los range 5 110 radius 50 zradius 15]}<=1 && ${Spawn[npc los range 5 110 radius 50 zradius 15].Type.Equal[Untargetable]} )) {
-      /if (${MeleeList.Find[${Me.Class.Name}]} && ${CanCast.Find[${Me.Class.Name}]}) {
-		 /if (${Me.PctEndurance}<21 && ${Me.CombatAbilityReady[${RespiteDisc}]} && !${Me.CombatState.Equal[Combat]}) /disc ${RespiteDisc}
-      	 /if (${Me.PctEndurance}<90 && !${Me.Sitting}) /sit
-      	 /if (${Me.PctMana}<90 && !${Me.Sitting}) /sit
-      } else /if (${MeleeList.Find[${Me.Class.Name}]} && !${CanCast.Find[${Me.Class.Name}]} && !${Me.Casting.ID} && ${Me.PctEndurance}<90) {
+/if (${autosit} && !${Bool[${Me.Sitting}]} && !${Me.Casting.ID} && !${Me.Moving} && !${Me.CombatState.Equal[combat]} && (!${SpawnCount[npc los range 5 110 radius 50 zradius 15 targetable]})) {
+	/if (${MeleeList.Find[${Me.Class.Name}]} && ${CanCast.Find[${Me.Class.Name}]} && !${SitTimer}) {
+		/if (${Me.PctEndurance}<21 && ${Me.CombatAbilityReady[${RespiteDisc}]} && !${Me.CombatState.Equal[Combat]} && !${Me.ActiveDisc.ID}) /disc ${RespiteDisc}
+		/if (${Me.PctEndurance}<75 && !${Me.Sitting}) /sit
+		/if (${Me.PctMana}<75 && !${Me.Sitting}) /sit
+		/call CreateTimer SitTimer 2m
+      } else /if (${MeleeList.Find[${Me.Class.Name}]} && !${CanCast.Find[${Me.Class.Name}]} && !${Me.Casting.ID} && ${Me.PctEndurance}<75 && !${SitTimer}) {
       	/if (${Me.PctEndurance}<21 && ${Me.CombatAbilityReady[${RespiteDisc}]} && !${Me.CombatState.Equal[Combat]}) /disc ${RespiteDisc}
          /sit
-      } else /if (!${MeleeList.Find[${Me.Class.Name}]} && ${CanCast.Find[${Me.Class.Name}]} && !${Me.Casting.ID} && ${Me.PctMana}<90) {
+		 /call CreateTimer SitTimer 2m
+      } else /if (!${MeleeList.Find[${Me.Class.Name}]} && ${CanCast.Find[${Me.Class.Name}]} && !${Me.Casting.ID} && ${Me.PctMana}<75) {
          /sit
+		 /call CreateTimer SitTimer 2m
       }
    }
    /if (${MeleeList.Find[${Me.Class.Name}]} && ${CanCast.Find[${Me.Class.Name}]} && ${Me.PctEndurance}>99 && ${Me.PctMana}>99 && !${Window[SpellBookWnd].Open}) {
@@ -510,7 +517,10 @@ Sub MedTime
 /return
 
 Sub Event_DoTell(string line,string person, string said)
-/if (${RelayTells}) /docommand /bc ${person.Right[-2].Left[-1]} told Me ${said}
+/if (${RelayTells} && !${line.Find[${Me}]}) {
+	/docommand /bc ${person} told Me ${said}
+	/beep
+}
 /return
 
 Sub ReturnAutoBalance
@@ -578,7 +588,7 @@ Sub PotionCast(string ItemName, int Slot)
 /if ( ${Window[PotionBeltWnd].Child[PW_PotionSlot${Slot}_Button].Tooltip.Equal[${ItemName}]} && !${Bool[${FindItem[${ItemName}].Timer}]} && ${Bool[${FindItem[${ItemName}]}]}) /potionbelt Activate ${CastSlot}
 /return
 
-Sub CastItemClicky(string sItemClicky)
+Sub CastItemClickyx(string sItemClicky)
 /varset MacroState CastItemClicky
 /if (!${FindItem[=${sItemClicky}].ID}) {
 	/if (!${ItemTimer}) {
@@ -605,6 +615,24 @@ Sub CastItemClicky(string sItemClicky)
   }
 /return
 
+Sub CastItemClicky(string sItemClicky)
+/varset MacroState CastItemClicky
+/if (!${FindItem[=${sItemClicky}].ID}) {
+	/if (!${ItemTimer}) {
+		/call CreateTimer ItemTimer 60s
+		/echo You don't seem to have ${sItemClicky} in your Inventory. Check inventory and Ini Spelling.
+	}
+	/return
+}
+/if (!${FindItem[=${sItemClicky}].Timer}) {	
+	/if (!${me.Casting.ID} || ${Me.Class.Name.Equal[Bard]}) {
+		/useitem ${FindItem[=${sItemClicky}].ItemSlot} ${FindItem[=${sItemClicky}].ItemSlot2}
+		/Echo Using ${sItemClicky} Clicky
+		/delay ${Math.Calc[${FindItem[${sItemClicky}].CastTime}+1]}s
+	}
+} 
+/return
+
 Sub CheckBuffies(string MySub)
 /declare a int local
 /for a 1 to ${NumSelfBuff}
@@ -617,15 +645,15 @@ Sub CheckBuffies(string MySub)
 		 /if (!${Me.Gem[${selfBuff${a}}]} && !${SelfType${a}.Find[alt]})  /call MemSpell "${selfBuff${a}}" ${SelfType${a}}      
 		 /if (${Me.SpellReady[${selfBuff${a}}]} || ${Me.AltAbilityReady[${selfBuff${a}}]}) {
 			/if (${Spell[${selfBuff${a}}].TargetType.Find[Single]}) /target myself
-			/if (${Bool[${MySub}]}) /call Cast "${selfBuff${a}}" "${SelfType${a}}" 0 ${MySub}
-			/if (!${Bool[${MySub}]}) /call Cast "${selfBuff${a}}" "${SelfType${a}}" 0 
+			/if (${Bool[${MySub}]}) /call CastSpell "${selfBuff${a}}" "${SelfType${a}}" 0 ${MySub}
+			/if (!${Bool[${MySub}]}) /call CastSpell "${selfBuff${a}}" "${SelfType${a}}" 0 
       /return
       }
     }
 }
     :SkipBuff
   /next a
-  /if (${Cursor.ID} && ${Me.CombatState.Equal[Combat]}) /autoinventory
+  /if (${Cursor.ID} && (${Me.CombatState.Equal[Combat]} || ${Cursor.ID} == 79322)) /autoinventory
   /if (${Window[Itemdisplaywindow].Open} && !${ItemWindowTimer}) {
 	/keypress esc
 	/Call CreateTimer ItemWindowTimer 12s
@@ -659,7 +687,7 @@ Sub Wait4Rez
 /call Event_Zone
 /echo Rez Successful
 /varset Died False
-/doevents flush Dead
+/doevents flush 
 /return 
 
 Sub MakeCampfire
@@ -728,7 +756,7 @@ Sub DeclareIniVar(string name,string varType,string section,string value,string 
 /if ( !${Defined[${name}]} ) /declare ${name} ${varType} outer
 /varset ${name} ${Ini[${iniName},${section},${name.Left[1].Upper}${name.Right[-1]},"${value}"]}
 /ini "${iniName}" "${section}" "${name.Left[1].Upper}${name.Right[-1]}" "${${name}}"
-/if ( (${Defined[alias]} && ${DoAlias}) || ( ${Defined[alias]} && ${Plugin[mq2alias].Name.Length} && ${Alias[${alias}]}) )  /squelch /alias ${alias} /echo set: ${name} ${section}
+/if ( (${Defined[alias]} && ${DoAlias}) || ( ${Defined[alias]} && ${Plugin[mq2alias].Name.Length} && !${Alias[${alias}]}) )  /squelch /alias ${alias} /echo set: ${name} ${section}
 /if (${Me.Book[${Me.Book[${${name}} rk. iii]}].ID}) /varset ${name} ${Me.Book[${Me.Book[${${name}} rk. iii]}].Name} 
 /if (${Me.Book[${Me.Book[${${name}} rk. ii]}].ID}) /varset ${name} ${Me.Book[${Me.Book[${${name}} rk. ii]}].Name}
 /if (${Me.CombatAbility[${${name}} rk. iii]}) /varset ${name} ${${name}} rk. iii
@@ -1063,10 +1091,12 @@ Sub RaidBuff
 /declare y int local
 /declare RaidMemberID int local
 /declare RaidBuffID int local
-/if (${Raid.Members} && ${Me.PctMana} > 10) {
-	/for i 1 to ${Raid.Members}
-	/if (${Spawn[${Raid.Member[${i}].Name}].ID}) {
-		/varset RaidMemberID ${Raid.Member[${i}].ID}
+/declare RaidSpellBase string local
+/declare RaidCount int local
+/if (${Raid.Members} && ${Me.PctMana} > 10 && ${SpawnCount[raid radius 100]}) {
+	/varset RaidCount ${SpawnCount[raid radius 100]}
+	/for i 1 to ${RaidCount}
+		/varset RaidMemberID ${NearestSpawn[${i}, raid radius 100].ID}
 		/for x 1 to ${RaidBuffTotal}
 		/varset RaidBuffID ${Spell[${RaidBuff${x}}].ID}
 		/if (!${RaidBuffTimer${RaidBuffID}${RaidMemberID}} && ${RaidBuffClass${x}.Find[${Spawn[${RaidMemberID}].Class.Name}]} && ${Spawn[${RaidMemberID}].Type.Equal[pc]} && ${Spawn[${RaidMemberID}].Distance} < 100 && ${Me.PctMana}>=10) {
@@ -1076,13 +1106,21 @@ Sub RaidBuff
 			/target ID ${RaidMemberID}
 			/delay 3 ${Target.ID}==${RaidMemberID}
 			/delay 3 ${Target.BuffCount}
+			/delay 3
 			/for y 1 to ${Target.BuffCount}
+			/if (${RaidBuffCast${x}.Find[rk. iii]}) {
+				/varset RaidSpellBase ${RaidBuffCast${x}.Left[-7]}
+			} else /if (${RaidBuffCast${x}.Find[rk. ii]})  {
+				/varset RaidSpellBase ${RaidBuffCast${x}.Left[-6]}
+			} else {
+				/varset RaidSpellBase ${RaidBuffCast${x}}
+			}		
 			/if (!${Spell[${Target.Buff[${y}]}].WillStack[${Spell[${RaidBuffID}].Name}]} && ${Target.Buff[${y}].ID}) {
 				/call CreateTimer RaidBuffTimer${RaidBuffID}${RaidMemberID} ${Spell[${RaidBuffID}].Duration.TotalSeconds}s
 				/goto :next
 			}
 			/next y
-			/if (${Target.Buff[${RaidBuff${x}}].ID} || ${Target.Buff[${RaidBuff${x}} rk. ii].ID} || ${Target.Buff[${RaidBuff${x}} rk. iii].ID} || ${RaidBuff${x}.Find[${Target.Buff[${RaidBuff${x}}]}]}) {	
+			/if (${Target.Buff[${RaidSpellBase}].ID} || ${Target.Buff[${RaidSpellBase} rk. ii].ID} || ${Target.Buff[${RaidSpellBase} rk. iii].ID} ) {	
 				/call CreateTimer RaidBuffTimer${RaidBuffID}${RaidMemberID} ${Spell[${RaidBuffID}].Duration.TotalSeconds}s
 				/goto :next
 			} else { 		
@@ -1095,7 +1133,6 @@ Sub RaidBuff
 		}
 		:next
 		/next x	
-	}
 	/next i
 }
 /call CreateTimer RaidBuffTimer 5s
@@ -1132,12 +1169,7 @@ Sub SmartAssist(MyMA)
 /if (${Target.ID} != ${Me.XTarget[1]]})
 /return
 
-Sub ReturnCheckBuff(BuffToCheck)
-/declare x int local
-/declare BuffName string local
-/for x 1 to ${Me.CountBuffs}
-   /varset BuffName ${Me.Buff[${x}].Name}
-   /if (${Me.Buff[${x}].Name.Find[${BuffToCheck}]}) /return TRUE
-/next x
+Sub LookForString(StringToCheck,StringToCheckAgainst)
+/if (${StringToCheckAgainst.Find[${StringToCheck}]}) /return TRUE
 /return FALSE
 

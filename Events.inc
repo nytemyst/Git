@@ -116,10 +116,61 @@
 #Event ChelsStopDPS    "#*#The crowd boos. They think the fight is going too fast#*#
 #Event ChelsStopDPS		"#*#Kijarl begins to absorb all damage#*#"
 #Event  StartDPS		"#*#Kijarl performs an exceptional heal!#*#"
-
-
 #event Prime1 "#*#Your flesh begins to bubble and ooze.#*#"
 #event CurePrime "#1# #*#xulous prime#*#"
+#event NeriakShock "#*#The golem glows and begins to hum, turning its head toward you.#*#"
+#event NeriakChill "#*#Take that one's essence, my pet!#*#"
+#event NeriakCold "#*#Sooo cooooold#*#"
+#event NeriakPulse "#*#An energy pulse moves toward you.#*#"
+#event NeriakSpear "#*#you are pinned to the ground with a spear#*#"
+#event Bixie2Red "#*#red cloud forms above#*#"
+#event Bixie2Yellow "#*#yellow cloud forms above#*#"
+#event Bixie2Safe "#*#spines rains down around#*#"
+
+Sub Event_Bixie2Safe(string line)
+/if (${line.Find[${Me}]}) /return Safe
+/return 
+
+Sub Event_Bixie2Red(string line)
+/if (${line.Find[${Me}]}) {
+	/declare tempx float local ${Me.X}
+	/declare tempy float local ${Me.Y}
+	/moveto loc -932 -2525
+	:loop
+	/doevents Bixie2Safe
+	/if (!${Macro.Return.Find[Safe]}) /goto :loop
+	/moveto loc ${tempy} ${tempx}
+	/delay 1s
+	/delay 6s !${Me.Moving}
+}
+/return
+
+Sub Event_Bixie2Yellow(string line)
+/if (${line.Find[${Me}]}) {
+	/declare tempx float local ${Me.X}
+	/declare tempy float local ${Me.Y}
+	/moveto loc -614 -2444
+	:loop
+	/doevents Bixie2Safe
+	/if (!${Macro.Return.Find[Safe]}) /goto :loop
+	/moveto loc ${tempy} ${tempx}
+	/delay 1s
+	/delay 6s !${Me.Moving}
+}
+/return
+
+Sub Event_NeriakSpear
+/stand
+/moveto loc 440.50 -668
+/delay 1s
+/delay 6s !${Me.Moving}
+/delay 6s
+/moveto loc 454.06 -504
+/delay 1s
+/delay 6s !${Me.Moving}
+/doevents flush NeriakSpear
+/return
+
 
 Sub Event_CurePrime(string Line,string Person)
 /if (!${Person.Find[You]} && (${Me.Class.Name.Equal[Ranger]} || ${Me.Class.Name.Equal[BeastLord]}) ) {
@@ -129,6 +180,52 @@ Sub Event_CurePrime(string Line,string Person)
 }
 /doevents flush CurePrime
 /return
+
+Sub Event_NeriakCold
+/if (${MeleeList.Find[${Me.Class.Name}]}) {
+	/bc moving back!
+	/squelch /stick 120 moveback
+	/delay 12s
+	/squelch /stick off
+}
+/return
+
+Sub Event_NeriakChill(string line)
+/if (${line.Find[${Me}]}) {
+	/tell ${EventsMaster} I need to run away from the raid got essense emote
+	/if (${DoLeash}) /leash off
+	/play shock smart
+	/delay 10s ${AdvPath.Waypoints} < 1 
+	/delay 6s ${Me.Buff[Grave Chill].ID}
+	/play shock smart reverse
+	/delay 10s ${AdvPath.Waypoints} < 1
+}
+/return
+
+Sub Event_NeriakShock
+/tell ${EventsMaster} I need to run away from the raid shock emote
+/if (${DoLeash}) /leash off
+/play shock smart
+/delay 10s ${AdvPath.Waypoints} < 1 
+/delay 6s ${Me.Buff[Sonic Shock].ID} 
+/play shock smart reverse
+/delay 10s ${AdvPath.Waypoints} < 1
+/return
+
+Sub Event_NeriakPulse
+/tell ${EventsMaster} I need to run away from the raid from pulse!
+/if (${DoLeash}) /leash off
+/play pulse smart
+/delay 15s ${AdvPath.Waypoints} < 1
+/delay 45s ${SpawnCount[npc "An energy pulse" radius 50]}
+/play pulse2 smart
+/delay 45s ${SpawnCount[npc "An energy pulse" radius 50]}
+/play pulse3 smart
+/delay 45s ${SpawnCount[npc "An energy pulse" radius 50]}
+/play pulse smart reverse
+/delay 10s ${AdvPath.Waypoints} < 1
+/return
+
 
 sub Event_Prime1
 /tell ${EventsMaster} I NEED A CURE!

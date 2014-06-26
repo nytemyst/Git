@@ -115,7 +115,8 @@ Sub Burn
 }
 /call CastSpell "Arcane Whisper" alt 0
 /call CastSpell "Silent Casting" alt 0
-/if (${Me.AltAbilityReady[Glyph of Courage]} && ${Raid.Members}) /call CastSpell "Glyph of Courage" alt 0
+/if (${Me.AltAbilityReady[Glyph of the cataclysm]} && ${Raid.Members}) /call CastSpell "Glyph of the cataclysm" alt 0
+/call CastSpell "Arcane Fury" alt 0
 /return
 
 	  

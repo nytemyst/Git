@@ -4,3 +4,11 @@ Cleric.Mac - Added to rezzing routine to rez all tanks after clerics but before 
 Cleric.Mac - Change announcement rez to take away corpse.
 Cleric.Mac - Added the ability to only Raidbuff when out of combat. Good for wipes when recoverying but not to take away from healing when actually doing the event.
 General.inc - Tweaked the RaidBuff routine a bit.
+
+05/30/2014
+General.inc - Removed mq2bagwindow requirement to click items in bags.
+06/11/2014
+General.inc - Changed raidbuff routine to only look for players thare in the range of 100 rather then the entire raid regardless of range. Plus found some bugs in the routine.
+06/26/2014
+afNuke - Added Arcane Fury to burn routine.
+afnuke - Changed glpyh to use Cataclysm instead of courage.
