@@ -27,26 +27,30 @@ Sub main
 /squelch /alias /cure /echo SetDebuffSpell
 /squelch /alias /tank /echo tank
 /call AAInit
-|------------------------END EDITING------------------------|
- 
-   /if (!${Defined[MoKed]}) /declare MoKed bool outer FALSE
-   /if (!${Target.ID}) {
-      /echo Using the default tank of ${DefaultTank}
-       /target ${DefaultTank}
-	   /delay 4 ${Target.ID}
-        /varset tankname ${Target.CleanName}
-         /varset tanknameid ${Target.ID}
-          /varset tankclass ${Target.Class.Name}
-        } else {
-         /varset tanknameid ${Target.ID}
-          /varset tankclass ${Target.Class.Name}
-        }
-   /echo AFCleric Active Version 1.70
-   /echo Casting ${HealSpell} on ${tankname} at ${startHeal}% HP
-   /echo Heals will be interrupted above ${stophealpoint} HP
-   /if (${LockTank}) /echo Will lock target on tank.
-   /if (!${LockTank}) /echo Will not lock target on tank.
-   /if (${UseIRC}) /call Irc
+
+/if (!${Target.ID}) {
+	/echo Using the default tank of ${DefaultTank}
+	/if (${Spawn[pc ${DefaultTank}].ID}) {
+		/target ${DefaultTank}
+		/delay 4 ${Target.ID}
+		/varset tankname ${Target.CleanName}
+		/varset tanknameid ${Target.ID}
+		/varset tankclass ${Target.Class.Name}
+	} else {
+		/echo ${DefaultTank} is not in the zone.
+	}	
+} else {
+	/varset tanknameid ${Target.ID}
+	/varset tankclass ${Target.Class.Name}
+}
+
+/echo AFCleric Active Version 1.72
+/echo Casting ${HealSpell} on ${tankname} at ${startHeal}% HP
+/echo Heals will be interrupted above ${stophealpoint} HP
+/if (${LockTank}) /echo Will lock target on tank.
+/if (!${LockTank}) /echo Will not lock target on tank.
+/if (${GeneralVersion} < 1.36) /Echo You're using an old General.inc file. Please update your General.inc file at http://github.com/nytemyst.com/git for best performance.
+/if (${UseIRC}) /call Irc
    
 :tankwatchloop
 /varset MacroState tankwatchloop
@@ -158,7 +162,7 @@ Sub Heal(int MyHealth,int MyTarget,MyClass)
 /varset WorstClass NULL
 /declare X int local
 /doevents
-/if (${Me.Song[Touch of the Divine].ID}) /notify ShortDurationBuffWindow Buff${Math.Calc[${Me.Song[Touch of the Divine].ID}-1].Int} leftmouseup
+/if (${Me.Song[Touch of the Divine].ID}) /removebuff Touch of the Divine
 /if (${Me.PctHPs}<=${${Me.Class.ShortName}Point}) {
 	/varset WorstHP ${Me.PctHPs}
 	/varset WorstHurtID ${Me.ID}
@@ -188,7 +192,6 @@ Sub Heal(int MyHealth,int MyTarget,MyClass)
 } 
 /if (!${AnybodyHurt}) {
 	/if (${HealList.Find[${Me.Casting}]} || ${Me.Casting.Name.Equal[${GroupHeal}]}) /call interrupt
-	/call ReturnCheckBuff Wisp
 	/if (${Macro.Return.Equal[FALSE]} && ${Name} && ${Me.SpellReady[${groupdurationhealspell}]} && ${Spell[${groupdurationhealspell}].Stacks[0]} && !${Me.Song[${groupdurationhealspell}].ID} && !${Me.Song[Celestial regeneration].ID}) /call CastSpell "${groupdurationhealspell}" ${grouphealgem} ${Me.ID}	
 	/if ((!${RaidBuffTimer} && ${DoRaidBuff} && ${Raid.Members}) || (${Raid.Members} && (${DoRaidBuffDownTimeOnly} || ${DoRaidBuff}) && !${Me.CombatState.Equal[Combat]})) /call RaidBuff
 	/if (!${Me.CombatState.Equal[Combat]}) /call BCBuff
@@ -249,7 +252,7 @@ Sub CheckName
 	/target id ${NameID}
 	/delay 1s ${Target.ID}==${NameID}
 	/varset Tank ${Spawn[PC ${Me.TargetOfTarget}].ID}
-	/if (${Select[${Spawn[${Me.TargetOfTarget}].Class.ShortName},SHD,WAR,PAL]}) /call CastSpell "Divine Guardian" alt ${Tank}
+	/if (${Select[${Spawn[${Tank}].Class.ShortName},SHD,WAR,PAL]}) /call CastSpell "Divine Guardian" alt ${Tank}
 }
 /return
 
@@ -262,10 +265,10 @@ Sub CheckHP
 	/if (${Target.PctHPs}>=${defaultstophealpoint} && ${castEndTime} < 5 || (${Target.PctHPs} == 100 && !${startHeal} == 100)) {
 		/call Interrupt
 		/return
-		}
 	}
+}
 /call ReturnCurrentGroup
-/if (${castEndTime} > 10 && ${Target.PctHPs} < ${divarbpoint} && ${Macro.Return.Find[${Target.Name}]}) /call DivineArb
+/if (${castEndTime} > 10 && ${Target.PctHPs} < ${divarbpoint} && ${Macro.Return.Find[${Target.Name}]} && ${Target.ID}) /call DivineArb
 /if (!${HealList.Find[${Me.Casting}]} && ${Group}) /call Heal
 /if ((${interrupt2healself}==1)&&(${Target.Name.NotEqual[${Me}]})&&(${Me.PctHPs}<${interrupt2healselfhp})) {
       /if ((${Me.PctHPs}<=${divarbpoint})&&(${Me.AltAbilityReady[Divine Arbitration]} && ${Group})) {
@@ -276,7 +279,7 @@ Sub CheckHP
       }
       /call Interrupt 
       /return
-   }
+}
 /return
 
 Sub Nuke
@@ -290,8 +293,8 @@ Sub Nuke
 /return
 
 Sub Event_Chat(string ChatType,string Sender,string ChatText)
-   /if ((!${ChatType.Equal[${mychannel}]})&&(!${ChatType.Equal[TELL]})&&(!${ChatType.Equal[group]})) /return
-   /call Event_IRC ${ChatType} ${Sender.Right[-2].Left[-1]} "${ChatText}"
+/if ((!${ChatType.Equal[${mychannel}]})&&(!${ChatType.Equal[TELL]})&&(!${ChatType.Equal[group]})) /return
+/call Event_IRC ${ChatType} ${Sender.Right[-2].Left[-1]} "${ChatText}"
 /return
        
 Sub CheckCure
@@ -359,14 +362,13 @@ Sub DivineArb
 /if (${FindItem[Aegis of Superior Divinity].ID} && !${FindItem[Aegis of Superior Divinity].Timer} && ${UseEpic}) {
 	/if (${Me.Casting.ID}) /call Interrupt
 	/call CastItemClicky "Aegis of Superior Divinity"
-  } else /if (${FindItem[Harmony of the Soul].ID} && !${FindItem[Harmony of the Soul].Timer} && ${UseEpic}) {
+} else /if (${FindItem[Harmony of the Soul].ID} && !${FindItem[Harmony of the Soul].Timer} && ${UseEpic}) {
 	/if (${Me.Casting.ID}) /call Interrupt
 	/call CastItemClicky "Harmony of the Soul"
   }  else /if (${Me.AltAbilityReady[Divine Arbitration]}) {
 	/if (${Me.Casting.ID}) /call Interrupt
     /call CastSpell "Divine Arbitration" alt 0
   }
-
  /delay 1
 /return
 
@@ -374,9 +376,9 @@ Sub Mana
 /doevents  
 /if (${DoYaulp}) {
 	/if (!${Me.Buff[${yaulpspell}].ID} && ${Spell[${yaulpspell}].Stacks} && !${Me.Sitting}) /call CastSpell "${yaulpspell}" ${YaulpGem} 0
-	} else /if (${Me.AltAbilityReady[Yaulp]} && ${Spell[Yaulp].Stacks} && !${Me.Buff[Yaulp].ID} && !${Me.Sitting}) {
+} else /if (${Me.AltAbilityReady[Yaulp]} && ${Spell[Yaulp].Stacks} && !${Me.Buff[Yaulp].ID} && !${Me.Sitting}) {
 	/call CastSpell "Yaulp" alt 0
-	}
+}
 /if (${Me.PctMana}< 60 && ${Me.AltAbilityReady[Veturika's perseverance]}) /call cast "Veturika's perseverance" alt 0
 /call Rod
 /call QuietMiracle
@@ -478,7 +480,6 @@ Sub CheckCured
 Sub BattleRez
 /varset MacroState BattleRez
 /declare i int local
-/if (!${SpawnCount[corpse Guild zradius 75 radius 110]}) /return
 /if (${SpawnCount[corpse Guild zradius 75 radius 110 class cleric]}) {
 	/for i 1 to ${SpawnCount[Corpse Guild zradius 75 radius 110 class cleric]}
 	/if (!${corpsetimer${NearestSpawn[${i},Corpse Guild zradius 75 radius 110 class cleric].ID}}) {
@@ -493,21 +494,23 @@ Sub BattleRez
 		/return
 	}
 	/next i
-} else /if (${SpawnCount[corpse Guild zradius 75 radius 110 tank]}) {
-		/for i 1 to ${SpawnCount[Corpse Guild zradius 75 radius 110 tank]}
-		/if (!${corpsetimer${NearestSpawn[${i},Corpse Guild zradius 75 radius 110 tank].ID}}) {
-			/varset RezID ${NearestSpawn[${i},Corpse Guild zradius 75 radius 110 tank].ID}
-			/if (${AnnounceRez}) /${RezChannel} Rezzing ${Spawn[${RezID}].DisplayName}
-			/call RezTarget ${RezID} "Blessing of Resurrection"
+} 
+/if (${SpawnCount[corpse Guild zradius 75 radius 110 tank]}) {
+	/for i 1 to ${SpawnCount[Corpse Guild zradius 75 radius 110 tank]}
+	/if (!${corpsetimer${NearestSpawn[${i},Corpse Guild zradius 75 radius 110 tank].ID}}) {
+		/varset RezID ${NearestSpawn[${i},Corpse Guild zradius 75 radius 110 tank].ID}
+		/if (${AnnounceRez}) /${RezChannel} Rezzing ${Spawn[${RezID}].DisplayName}
+		/call RezTarget ${RezID} "Blessing of Resurrection"
 		/return
 	}
 	/next i
-} else /if (${SpawnCount[corpse Guild zradius 75 radius 110]}) {
-		/for i 1 to ${SpawnCount[Corpse Guild zradius 75 radius 110]}
-		/if (!${corpsetimer${NearestSpawn[${i},Corpse Guild zradius 75 radius 110].ID}}) {
-			/varset RezID ${NearestSpawn[${i},Corpse Guild zradius 75 radius 110].ID}
-			/if (${AnnounceRez}) /${RezChannel} Rezzing ${Spawn[${RezID}].DisplayName}
-			/call RezTarget ${RezID} "Blessing of Resurrection"
+} 
+/if (${SpawnCount[corpse Guild zradius 75 radius 110]}) {
+	/for i 1 to ${SpawnCount[Corpse Guild zradius 75 radius 110]}
+	/if (!${corpsetimer${NearestSpawn[${i},Corpse Guild zradius 75 radius 110].ID}}) {
+		/varset RezID ${NearestSpawn[${i},Corpse Guild zradius 75 radius 110].ID}
+		/if (${AnnounceRez}) /${RezChannel} Rezzing ${Spawn[${RezID}].DisplayName}
+		/call RezTarget ${RezID} "Blessing of Resurrection"
 		/return
 	}
 	/next i
@@ -523,7 +526,7 @@ Sub RezTarget(int MyTarget,MySpell)
 /if ( !${Me.AltAbilityReady[${MySpell}]}) { 
 	/if (${Spawn[${MyTarget}].ID}) /varset corpsetimer${MyTarget} 640s
 } else {
-	/if (${Spawn[${MyTarget}].ID}) /varset corpsetimer${MyTarget} 30s
+	/if (${Spawn[${MyTarget}].ID}) /varset corpsetimer${MyTarget} 90s
 }
 /return
 
@@ -760,7 +763,6 @@ Sub ResetVariables
 Sub GeneralDeclares
 /declare p int local
 /declare iniName string outer Cleric_${Me.Name}.ini
-/declare oldtarget int outer
 /declare BuffTimer timer outer 0s
 /declare Curing int outer
 /declare fightStartTime float outer
@@ -780,13 +782,12 @@ Sub GeneralDeclares
 /declare WorstClass string outer NULL
 /declare rodwait timer outer
 /declare following int outer 0
-/declare duckselfspam int outer 1
 /declare OldState string outer
 /declare CurrentTarget int outer
-/declare HealParam string outer
 /declare BuffQueue[10,2] int outer
 /declare BuffWasCast bool outer
 /declare BuffWasCanceled bool outer
+/declare MoKed bool outer FALSE
 /ini "${iniName}" "Settings" "- Mychannel is where you want the bot to talk in if you have announce turned on. Example /i say if you use irc"
 /call DeclareIniVar  DoAlias  string	GeneralSettings 1 /doalias
 /Call DeclareIniVar mychannel string Settings "" /mychannel
@@ -827,7 +828,6 @@ Sub GeneralDeclares
 /call DeclareIniVar AuraToCast2 string Spells "Aura of the Pious"
 /Call DeclareIniVar usegroupheal int Settings 1 /GroupHeal
 /call DeclareIniVar usetankhot int Settings 1 /tankhot
-/call DeclareIniVar usehot int Settings 1 /usehot
 /call DeclareIniVar UseCure int Settings 1 /UseCure
 /call DeclareIniVar UseRC   int Settings 1 /rc
 /call DeclareIniVar DoRaidBuff int Settings 0 /raidbuff
@@ -897,7 +897,6 @@ Sub GeneralDeclares
 /call DeclareIniVar TwinhealNuke2 string Spells "Glorious Denunciation"
 /call DeclareIniVar TwinhealGem string Spells "gem6"
 /call DeclareIniVar TwinhealGem2 string Spells "gem8"
-/call DeclareIniVar UseTwincast int Settings 0 /twincast
 /call DeclareIniVar usedivarb int "Settings"  1 
 /call DeclareIniVar UseEpic   int "Settings"  1 /useepic
 /call DeclareIniVar divarbpoint int "Divine Arbitration"  39

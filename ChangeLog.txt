@@ -12,3 +12,6 @@ General.inc - Changed raidbuff routine to only look for players thare in the ran
 06/26/2014
 afNuke - Added Arcane Fury to burn routine.
 afnuke - Changed glpyh to use Cataclysm instead of courage.
+07/1/2014
+Cleric.Mac - Changed to use /removebuff to remoev touch of the divine.
+Afnuke.mac - changed to use /removebuff to remove familiars.
