@@ -15,3 +15,5 @@ afnuke - Changed glpyh to use Cataclysm instead of courage.
 07/1/2014
 Cleric.Mac - Changed to use /removebuff to remoev touch of the divine.
 Afnuke.mac - changed to use /removebuff to remove familiars.
+07/13/2014
+sk.mac - Fixed bug where you attack your own pet.

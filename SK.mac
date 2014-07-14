@@ -36,15 +36,16 @@ Sub MainLoop
  /delay 1
  /doevents
  /if (${Me.Invis} ) /call MainLoop
- /if (${Me.Combat}) /attack off
+ |/if (${Me.Combat}) /attack off
  /if (!${bufftimer} && !${SpawnCount[npc los range 5 150 radius 50 zradius 50 targetable]} || !${Aggro}) /call checkselfbuff
- /if ((${Aggro} || ${MaMode}) && !${DpsMode}) /call TankMode
- /if (${DpsMode}) /call DpsMode
+ /if ((${Aggro} || ${MaMode}) && !${DpsMode} && !${BuffOnly}) /call TankMode
+ /if (${DpsMode} && !${BuffOnly}) /call DpsMode
  /if (${DoLeash}) /call Leash
  /if (${Me.PctMana}<=90) /call MedTime
  /if (${DoLoot} && !${Me.Moving} && !${Me.Invis}) /call LootMobs
  /if (!${CheckExpTimer} && ${AutoExpAdjust}) /call AutoAdjustExp
  /call checkammo
+ /if (${Raid.Members}) /call RaidZone
  /if (${Me.PctEndurance} <25 && ${Me.CombatState.NotEqual[Combat]} && !${Me.ActiveDisc.ID}) /call CastSpell "${RespiteDisc}" disc 0
  /if (!${Me.Fellowship.Campfire} && ${PlantCampFire}) /call MakeCampfire
  /goto :loop
@@ -52,7 +53,7 @@ Sub MainLoop
 
 Sub TankMode
 /call GetMob
-/if ((${Target.Type.Equal[NPC]} || ${Target.Type.Equal[Pet]}) && ${Target.ID} && !${ExcludeList.Find[${Target.CleanName}]}) /call GetAggro
+/if ((${Target.Type.Equal[NPC]} || (${Target.Type.Equal[Pet]} && ${Target.ID} != ${Me.Pet.ID})) && ${Target.ID} && !${ExcludeList.Find[${Target.CleanName}]}) /call GetAggro
 /return
 
 Sub DpsMode
@@ -120,7 +121,7 @@ Sub GetMob
     }
 	/next i
 } else /if (${SpawnCount[npc los Range 5 150 radius 100 zradius 50 targetable]} && ${MaMode} ) {
-	/varset Mobs ${SpawnCount[npc los Range 5 150 radius 100 zradius 50 targetable]}
+	/varset Mobs ${SpawnCount[npc los Range 5 100 radius 150 zradius 50 targetable]}
 	/for i 1 to ${Mobs}
 	/varset MobID ${NearestSpawn[${i}, npc los Range 5 150 radius 100 zradius 50 targetable].ID}
 	/if (!${PriorityMob} && ${Spawn[id ${MobID}].PctHPs} <= ${MobHP} && ${Spawn[id ${MobID}].Type.Equal[NPC]} && !${NameList.Find[${Spawn[id ${MobID}].CleanName}]} && !${ExcludeList.Find[${Spawn[id ${MobID}].CleanName}]} && ${Spawn[id ${MobID}].CleanName.Length}>1 || ${MezzImmuneList.Find[${Spawn[ID ${MobID}].CleanName}]}) {
@@ -165,7 +166,7 @@ Sub GetAggro
  /if (${Me.Sitting}) /squelch /stand
  /if (${Target.Distance}>=42 && ${FindItemCount[${RangeItemSummon}]}) /range
  /if (${Target.Distance}>=51) /call checkammo
- /if (${Target.Distance}<=20 && !${Stick.Active}) /squelch /stick 15 moveback
+ /if (${Target.Distance}<=20 && !${Stick.Active} && ${Target.LineOfSight}) /squelch /stick 15 moveback
  /if (${Target.Distance}>80 && ${SpawnCount[npc radius 50 zradius 50 targetable los Range 5 150]}) /multiline ; /echo Grabing the Mob that's Closer.;/squelch /target clear
  /if (${Me.SpellReady[${ChallengeSpell}]} && ${Target.ID} && !${Me.Song[${ChallengeSpellRecourse}].ID} && !${Target.Type.Equal["corpse"]}) /call cast "${ChallengeSpell}" gem1 0 Checkall
  /if (${Target.Distance}>=100 && ${Target.Distance}<200 && ${Me.AltAbilityReady[Hate's Attraction]} && (!${Raid.Members} || ${Raid.Members} < 18)) /call cast "Hate's Attraction" alt 0
@@ -244,7 +245,7 @@ Sub Nuke
 /if (${Me.AltAbilityReady[Ragged Bite of Agony]} && !${Target.Type.Equal["corpse"]} && ${Target.ID} && !${Me.SpellReady[${HateSpell1}]} ) /call castSpell "Ragged Bite of Agony" alt 0
 /if (${Me.AltAbilityReady[banestrike]} && !${Target.Type.Equal["corpse"]} && ${Target.ID} && ${Target.Distance} < 70 && !${Me.SpellReady[${HateSpell1}]}) /call castspell "banestrike" alt 0
 /if (${Me.CombatAbilityReady[${BladeStrike}]} && !${Target.Type.Equal["corpse"]} && ${Target.ID} && ${Me.CurrentEndurance}> 8000 && !${Me.SpellReady[${HateSpell1}]} ) /call CastSpell  "${BladeStrike}" disc 0
-/if (${Target.PctHPs}<30 && !${SnareTimer${CurrentTarget}}) /call CastDebuff "Encroaching Darkness" alt ${CurrentTarget} SnareTimer${CurrentTarget} 60s 
+/if (${Target.PctHPs}<30 && !${SnareTimer${CurrentTarget}} && !${Target.Snared.Duration}) /call CastDebuff "Encroaching Darkness" alt ${CurrentTarget} SnareTimer${CurrentTarget} 60s 
 /if (${Target.Distance} <200 && ${Target.Body.Name.Equal[undead]} && !${UndeadSlowTimer${CurrentTarget}} && ${Me.AltAbilityReady[Helix of the Undying]} && !${Me.SpellReady[${NukeSpell1}]} && !${Target.Slowed.Duration}) /call CastDebuff "Helix of the Undying" alt ${CurrentTarget} UndeadSlowTimer${CurrentTarget} 2m
 /return
 
@@ -524,7 +525,7 @@ Sub Initialization
 /if (${UseIRC}) /call Irc
 /call AAInit
 /squelch /alias /Skhelp /echo help
-/echo Shadow Knight Script Started 4.5
+/echo Shadow Knight Script Started 4.51
 /return
 
 Sub Event_NoTaunt
@@ -559,6 +560,7 @@ Sub GeneralDeclares
  /call DeclareIniVar CheckNames int SETTINGS 1 /checknames
  /call DeclareIniVar MedOnLowMana bool SETTINGS FALSE
  /call DeclareIniVar MedPercent int SETTINGS 30
+ /call DeclareIniVar BuffOnly bool SETTINGS FALSE /buffonly
  /call DeclareIniVar SteelyStance string Spells "Steely Stance"
  /call DeclareIniVar SkinBuff string Spells "Malarian Skin"
  /call DeclareIniVar WithStand string Spells "WithStand"
