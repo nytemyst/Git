@@ -13,12 +13,13 @@
 #event Experience		"#*#You gained raid experience#*#"
 #event Dead				"#*#Returning to Bind Location#*#"
 #event Dead				"You have been slain by#*#"
+#event Dead				"You died."
 #event SetVar 			"[MQ2] set: #1# #2# #3#"
 #event GOM				"#*#you are granted a gift#*#"
 Sub GeneralDeclares2
    /echo Setting up all the common Variables.
    /if (!${Defined[castReturn]}) /declare castReturn string outer CAST_CANCELLED
-   /declare GeneralVersion float  outer 1.35
+   /declare GeneralVersion float  outer 1.40
    /declare noInvis        int    outer 1
    /declare follname	   string outer
    /declare MacroState     string outer
@@ -69,8 +70,8 @@ Sub GeneralDeclares2
    /call    DeclareIniVar  RelayTells    int    GeneralSettings 0 /relay
    /call    DeclareIniVar  DoFood        int    GeneralSettings 0 /dofood
    /Call    DeclareIniVar  EventsMaster  string GeneralSettings "Bobby"
-   /call 	DeclareIniVar  UseIRC 		 string GeneralSettings 0
-   
+   /call 	DeclareIniVar  UseIRC 		 string GeneralSettings 0   
+   /call 	DeclareIniVar  ChatVerbose   Bool	GeneralSettings TRUE	
    /call	CleanUpXTarget
    /if (!${CureList.Find[${Me.Class.Name}]}) /call    DeclareIniVar  AutoBalance   int    GeneralSettings 0 /autobalance
    /if (!${CureList.Find[${Me.Class.Name}]}) /call    DeclareIniVar  AutoBalanceHPCheck int GeneralSettings 5 /autobalancehp
@@ -150,7 +151,7 @@ Sub Leash
 Sub Obstacle
    /varset MacroState Obstacle
    /doevents
-   /if (${Died} || ${Me.Dead}) /return
+   /if (${Died} || ${Me.Dead} || ${Window[ConfirmationDialogBox]}) /return
    /echo Obstacle detected, moving around it
    /keypress forward
    /keypress back hold
@@ -227,6 +228,7 @@ Sub Event_Zone
 Sub Follow(string line,string sender,string name)
 /varset MacroState Follow
 /if ( ${sender.Equal[${Me.Name}]} ) /return
+/squelch /target clear
 /if (!${Spawn[${sender}].ID}) {
       /e ${sender} is not in zone for me to follow!
       /return
@@ -301,7 +303,10 @@ Sub Stop
 /return
 
 Sub Event_IRC(string ChatType,string Sender,string ChatText,string Extra)
-   /if (${MasterList.Find[${Sender}]} && ${ChatText.Left[1].Equal[/]}) /docommand ${ChatText} 
+/if (${MasterList.Find[${Sender}]} && ${ChatText.Left[1].Equal[/]}) /docommand ${ChatText} 
+/if (${Window[LargeDialogWindow]} && ${ChatText.Equal[banner]}) {
+	/if (${Window[LargeDialogWindow].Child[LDW_TextBox].Text.Find["Would you like to travel"]}) /nomodkey /notify LargeDialogWindow LDW_YesButton leftmouseup 
+}
    /if (${ChatText.Equal[follow]}) /call Follow  "tell" "${Sender}" "${ChatText}"
    /if (${ChatText.Equal[stop]}) {
    	/call Stop "tell" "${Sender}" "{$ChatText}"
@@ -428,7 +433,20 @@ Sub Event_IRC(string ChatType,string Sender,string ChatText,string Extra)
 	/keypress esc
 	/keypress esc
    }
-   /return
+   /if (${ChatText.Equal[invisoff]}) {
+	/makemevisible
+   }
+/if (${ChatText.Arg[1, ].Equal[burnnow]}) {
+	/if (${ChatText.Arg[2, ]}) {
+		/Call CreateTimer BurnTimer ${ChatText.Arg[2, ]]}M
+	} else {
+		/call CreateTimer BurnTimer 5m
+	}
+}
+/if (${ChatText.Arg[1, ].Equal[Burnstop]}) {
+	/Call CreateTimer BurnTimer 0
+}
+/return
 
 Sub Event_ExcludeMob(string line,string MobName)
    /declare CurrentExcludeList string local
@@ -588,33 +606,6 @@ Sub PotionCast(string ItemName, int Slot)
 /if ( ${Window[PotionBeltWnd].Child[PW_PotionSlot${Slot}_Button].Tooltip.Equal[${ItemName}]} && !${Bool[${FindItem[${ItemName}].Timer}]} && ${Bool[${FindItem[${ItemName}]}]}) /potionbelt Activate ${CastSlot}
 /return
 
-Sub CastItemClickyx(string sItemClicky)
-/varset MacroState CastItemClicky
-/if (!${FindItem[=${sItemClicky}].ID}) {
-	/if (!${ItemTimer}) {
-		/call CreateTimer ItemTimer 60s
-		/echo You don't seem to have ${sItemClicky} in your Inventory. Check inventory and Ini Spelling.
-		}
-	/return
-	}
-/declare OldItem string local
-|/echo Need to cast ${sItemClicky} and its Worn ${FindItem[${sItemClicky}].EffectType.Equal[Click Worn]} and itemSlot ${FindItem["${sItemClicky}"].InvSlot}
-/if (${FindItem[${sItemClicky}].EffectType.Equal[Click Worn]} && ${FindItem[${sItemClicky}].InvSlot}) {
-	/varset OldItem ${Me.Inventory[${FindItem[${sItemClicky}].WornSlot[1].ID}].Name}
-    /exchange "${sItemClicky}" ${FindItem[${sItemClicky}].WornSlot[1].ID}
-	/Echo Using ${sItemClicky} Clicky
-    /nomodkey /itemnotify ${FindItem["${sItemClicky}"].InvSlot} rightmouseup
-    /delay ${Math.Calc[${FindItem[${sItemClicky}].CastTime}+1]}s
-    /timed 10 /exchange "${OldItem}" ${FindItem[${OldItem}].WornSlot[1].ID}
-    /delay 5s ${Me.Inventory[${FindItem[${OldItem}].WornSlot[1].ID}].Name.Equal[${OldItem}]}
-  } else {
-    /Echo Using ${sItemClicky} Clicky
-    /if (!${me.Casting.ID} || ${Me.Class.Name.Equal[Bard]}) /nomodkey /itemnotify ${FindItem["${sItemClicky}"].InvSlot} rightmouseup
-	|/if (!${me.Casting.ID} || ${Me.Class.Name.Equal[Bard]}) /nomodkey /cast item "${sItemClicky}"
-    /delay ${Math.Calc[${FindItem[${sItemClicky}].CastTime}+1]}s ${FindItem[${sItemClicky}].Timer}
-  }
-/return
-
 Sub CastItemClicky(string sItemClicky)
 /varset MacroState CastItemClicky
 /if (!${FindItem[=${sItemClicky}].ID}) {
@@ -658,6 +649,12 @@ Sub CheckBuffies(string MySub)
 	/keypress esc
 	/Call CreateTimer ItemWindowTimer 12s
   } 
+  
+/if (${Window[ConfirmationDialogBox]}) {
+	/if (${Window[ConfirmationDialogBox].Child[CD_TextOutPut].Text.Find["Join the expedition"]}) /nomodkey /notify ConfirmationDialogBox Yes_Button leftmouseup 
+	/if (${Window[ConfirmationDialogBox].Child[CD_TextOutput].Text.Find[Blessing of Resurrection]}) /call Wait4rez
+}
+
 /return
 
 
@@ -706,7 +703,7 @@ Sub MakeCampfire
 /windowstate FellowshipWnd close
 /return
 
-Sub BCBuff
+Sub BCBuff(string MySub)
 /declare X int local
 /declare b int local 1
 /declare ignorelist string local
@@ -737,6 +734,9 @@ Sub BCBuff
 	}
 :end
 /return
+
+
+
 
 Sub Irc
 /Call DeclareIniVar IRCServer string GeneralSettings ""
@@ -773,10 +773,47 @@ Sub Event_SetVar(string line,string varName,string section,string value)
      /ini "${iniName}" ${section} "${varName.Left[1].Upper}${varName.Right[-1]}" "${value}"
 /return
 
+Sub CastSpellx(MySpell,MyType,int MyTarget,MySub)
+/varset MacroState CastSpell ${MySpell}
+/doevents
+/if (${Me.Dead} || ${Died} || ${Me.Casting.ID}) /return
+/if (${MyType.Equal[alt]}) {
+	/if (!${Me.AltAbilityReady[${MySpell}]}) /return ${MySpell} NOTREADY 
+	/if (${Spell[${MySpell}].SpellType.Equal[Self]} || ${MyTarget}==0) {
+		/echo Casting AA ${MySpell}
+		/if (!${Me.AltAbility[${MySpell}].Spell.MyCastTime}>=0.5) {
+			/alt activate ${Me.AltAbility[${MySpell}].ID}
+		} else /if (${MySub.NotEqual[NULL]} ) {
+			/call Cast "${MySpell}" ${MyType} 0 ${MySub}
+		} else /call Cast "${MySpell}" ${MyType} 0 
+	/return
+	}
+} else /if (${MyType.Equal[Disc]]}) {
+	/if (!${Me.CombatAbilityReady[${MySpell}]} || ${Me.CurrentEndurance} < ${Spell[${MySpell}].EnduranceCost}) /return NOTREADY
+	/echo Using Disc ${MySpell} 
+	/disc ${MySpell}
+	/delay 5 !${Me.CombatAbilityReady[${MySpell}]}
+	/return
+} else /if (${MyType.Equal[item]}) {
+	/if (${FindItem[=${MySpell}].Timer} && ${FindItem[=${MySpell}].ID}) /return NOTREADY
+	/if (${Me.Class.Name.Equal[Bard]} && ${Twist}) {
+		/squelch /stopswitch
+		/delay 1s !${Twist}
+	}
+	/call CastItemClicky "${MySpell}"
+	/return 
+} else {
+	/if (!${Me.SpellReady[${MySpell}]}) /return NOTREADY
+	/if (${Spell[${MySpell}].SpellType.Equal[Self]} || ${MyTarget}==0) {
+		
+	}
+}
+/return
+
+
 Sub CastSpell(MySpell,MyType,int MyTarget,MySub)
 /varset MacroState CastSpell ${MySpell}
 /doevents
-/if (${Me.Dead} || ${Died}) /return
 /if (${Me.Casting.ID} && (${MyType.NotEqual[alt]} && ${MyType.NotEqual[item]})) /multiline ; /varset castReturn CAST_NOTREADY;/return 
 /if ((${MyType.NotEqual[alt]} && ${MyType.NotEqual[item]} && ${MyType.NotEqual[disc]}) && !${Me.Gem[${MySpell}]}) /call MemSpell "${MySpell}" ${MyType}
 /if (!${Me.SpellReady[${MySpell}]} && (!${MyType.Equal[item]} && !${MyType.Equal[alt]} && !${MyType.Equal[disc]}) || !${Me.AltAbilityReady[${MySpell}]} && ${MyType.Equal[alt]} || !${Me.CombatAbilityReady[${MySpell}]} && ${MyType.Equal[disc]} || ${Me.CurrentEndurance} < ${Spell[${MySpell}].EnduranceCost} || ${Me.CurrentMana} < ${Spell[${MySpell}].Mana} && (!${MyType.Equal[alt]} && !${MyType.Equal[item]} && !${MyType.Equal[disc]}) || ${MyType.Equal[item]} && ${FindItem[=${MySpell}].Timer} && ${FindItem[=${MySpell}].ID} || ${Spawn[${MyTarget}].Type.Equal[corpse]}) {
@@ -785,17 +822,14 @@ Sub CastSpell(MySpell,MyType,int MyTarget,MySub)
 	|/if (${Me.Class.Name.Equal[shaman]}) /echo ${MySpell} not ready
 	/return ${MySpell} NOTREADY
 	}
-/if (${MyTarget}==0) /goto :notarget
+/if (${MyTarget}==0 || ${Spell[${MySpell}].SpellType.Equal[Self]}) /goto :notarget
 /if (!${Spawn[${MyTarget}].ID}) {
 	/echo You tried to cast ${MySpell} on something that doesn't exist
 	/multiline ; /varset castReturn CAST_NOTREADY;/return 
 	}
 /if (${Target.ID} != ${MyTarget}) /tar id ${MyTarget}
 /delay 1s ${Target.ID} == ${MyTarget}
-/if (${Target.Type.Equal[Corpse]} || !${Target.ID} || (!${Target.LineOfSight} && !${Spell[${MySpell}].SpellType.Equal[Beneficial]}) || ${Target.Distance} > 300) {
-	/return 
-	/if (${Me.Class.Name.Equal[shaman]}) /echo something
-	}
+/if (${Target.Type.Equal[Corpse]} || !${Target.ID} || (!${Target.LineOfSight} && !${Spell[${MySpell}].SpellType.Equal[Beneficial]}) || ${Target.Distance} > 300) /return
 :NoTarget
 /if (${Target.Type.Equal[Corpse]} || (!${Target.LineOfSight} && !${Spell[${MySpell}].SpellType.Equal[Beneficial]}) || ${Target.Distance} > 300 ) /return 45
 /if (${MyType.Equal[item]}) {
@@ -805,13 +839,13 @@ Sub CastSpell(MySpell,MyType,int MyTarget,MySub)
 	}
 	/call CastItemClicky "${MySpell}"
 	/return 
-	}
+}
 /if (${MyType.Equal[disc]}) {
 	/if (${MyTarget}==0 && ${Target.ID}) /echo Using Disc ${MySpell} 
 	/disc ${MySpell}
 	/delay 5 !${Me.CombatAbilityReady[${MySpell}]}
 	/return
-	}
+}
 /if ((${DiseaseImmuneList.Find[${Target.CleanName}]} && ${Spell[${MySpell}].ResistType.Equal[Disease]}) || (${PoisonImmuneList.Find[${Target.CleanName}]} && ${Spell[${MySpell}].ResistType.Equal[Poison]}) || (${FireImmuneList.Find[${Target.CleanName}]} && ${Spell[${MySpell}].ResistType.Equal[Fire]}) || (${IceImmuneList.Find[${Target.CleanName}]} && ${Spell[${MySpell}].ResistType.Equal[Cold]}) || (${MagicImmuneList.Find[${Target.CleanName}]} && ${Spell[${MySpell}].ResistType.Equal[Magic]}) ) {
 	/varset castReturn CAST_NOTREADY
 	/return Mob Immune to ${MySpell}
@@ -820,30 +854,30 @@ Sub CastSpell(MySpell,MyType,int MyTarget,MySub)
 /if (${Died} || ${Me.Dead}) /return
 /if (${Me.Casting.ID} && (${MyType.Equal[item]} || ${MyType.Equal[alt]}) && ${Me.Class.Name.NotEqual[Bard]}) /goto :waitforspelltofinish
 /if (${MySub.NotEqual[NULL]} ) {
-		/if (${Me.Sitting}) /stand
-		/if (${MyTarget}!=0) /echo Casting ${MySpell} on ${Spawn[ID ${MyTarget}].CleanName}
-		/if (${MyTarget}==0 && ${Target.ID}) /echo Casting ${MySpell} 
-        /if (${Me.Class.Name.NotEqual[bard]}) {
-			/call Cast "${MySpell}" ${MyType} 0 ${MySub}
-		} else {
-			/alt activate ${Me.AltAbility[${MySpell}].ID}
-		}	
-		/if (${MyType.Equal[alt]}) /delay 5 !${Me.AltAbilityReady[${MySpell}]}
-		/if (!${MyType.Equal[item]} && !${MyType.Equal[alt]} && !${MyType.Equal[disc]}) /delay 5 !${Me.SpellReady[${MySpell}]}
-		/return 
-      } else {
-		/if (${Me.Sitting}) /stand
-	    /if (${MyTarget}!=0) /echo Casting ${MySpell} on ${Spawn[ID ${MyTarget}].CleanName}
-		/if (${MyTarget}==0 && ${Target.ID}) /echo Casting ${MySpell} 
-        /if (${Me.Class.Name.NotEqual[bard]}) {
-			/call Cast "${MySpell}" ${MyType} 0 
-		} else {
-			/alt activate ${Me.AltAbility[${MySpell}].ID}
-		}	
-		/if (${MyType.Equal[alt]}) /delay 5 !${Me.AltAbilityReady[${MySpell}]}
-		/if (!${MyType.Equal[item]} && !${MyType.Equal[alt]} && !${MyType.Equal[disc]}) /delay 5 !${Me.SpellReady[${MySpell}]}
-		/return 
-      }
+	/if (${Me.Sitting}) /stand
+	/if (${MyTarget}!=0) /echo Casting ${MySpell} on ${Spawn[ID ${MyTarget}].CleanName}
+	/if (${MyTarget}==0 && ${Target.ID} && ${ChatVerbose}) /echo Casting ${MySpell} 
+	/if (${Me.Class.Name.NotEqual[bard]} || ${Me.AltAbility[${MySpell}].Spell.MyCastTime}>=0.5) {
+		/call Cast "${MySpell}" ${MyType} 0 ${MySub}
+	} else {
+		/alt activate ${Me.AltAbility[${MySpell}].ID}
+	}	
+	/if (${MyType.Equal[alt]}) /delay 5 !${Me.AltAbilityReady[${MySpell}]}
+	/if (!${MyType.Equal[item]} && !${MyType.Equal[alt]} && !${MyType.Equal[disc]}) /delay 5 !${Me.SpellReady[${MySpell}]}
+	/return 
+} else {
+	/if (${Me.Sitting}) /stand
+	/if (${MyTarget}!=0 && ${ChatVerbose}) /echo Casting ${MySpell} on ${Spawn[ID ${MyTarget}].CleanName}
+	/if (${MyTarget}==0 && ${Target.ID} && ${ChatVerbose}) /echo Casting ${MySpell} 
+	/if (${Me.Class.Name.NotEqual[bard]} || ${Me.AltAbility[${MySpell}].Spell.MyCastTime}>=0.5) {
+		/call Cast "${MySpell}" ${MyType} 0 
+	} else {
+		/alt activate ${Me.AltAbility[${MySpell}].ID}
+	}	
+	/if (${MyType.Equal[alt]}) /delay 5 !${Me.AltAbilityReady[${MySpell}]}
+	/if (!${MyType.Equal[item]} && !${MyType.Equal[alt]} && !${MyType.Equal[disc]}) /delay 5 !${Me.SpellReady[${MySpell}]}
+	/return 
+}
 /return 
 
 Sub CreateTimer(MyTimer,MyLength)
@@ -980,9 +1014,16 @@ Sub CheckTanks
 |--------Loops Through extended target window For Pets and Players to heal.
 /for X 1 to ${Me.XTarget}
 /if (${Spawn[${Me.XTarget[${X}].ID}].ID} && (${Spawn[${Me.XTarget[${X}].ID}].Type.Equal[PC]} || ${Spawn[${Me.XTarget[${X}].ID}].Type.Equal[PET]} || ${Spawn[${Me.XTarget[${X}].ID}].Type.Equal[NPC]})) {
-	/if (${Spawn[${Me.XTarget[${X}].ID}].PctHPs} <= ${WARPoint} && ${Spawn[${Me.XTarget[${X}].ID}].Distance}<=200 && ${Spawn[${Me.XTarget[${X}].ID}].Type.Equal[PET]} && ${Spawn[${Me.XTarget[${X}].ID}].Level} >99 ) /call Heal ${Spawn[${Me.XTarget[${X}].ID}].PctHPs} ${Spawn[${Me.XTarget[${X}].ID}].ID} WAR
-	/if (${Spawn[${Me.XTarget[${X}].ID}].Type.NotEqual[Corpse]} && ${Spawn[${Me.XTarget[${X}].ID}].PctHPs} <= ${${Spawn[${Me.XTarget[${X}].ID}].Class.ShortName}Point} && ${Spawn[${Me.XTarget[${X}].ID}].Distance}<=200 && ${Spawn[${Me.XTarget[${X}].ID}].Type.Equal[PC]}) /call Heal ${Spawn[${Me.XTarget[${X}].ID}].PctHPs} ${Spawn[${Me.XTarget[${X}].ID}].ID} ${Spawn[${Me.XTarget[${X}].ID}].Class.ShortName} 	
-	/if (${Spawn[${Me.XTarget[${X}].ID}].Type.NotEqual[Corpse]} && ${ProtectNPC} && ${ProtectNPCList.Find[${Me.XTarget[${X}].Name}]} && ${Spawn[${Me.XTarget[${X}].ID}].PctHPs} <= 75 && ${Spawn[${Me.XTarget[${X}].ID}].Distance}<=200 && ${Spawn[${Me.XTarget[${X}].ID}].Type.Equal[NPC]}) /call Heal ${Spawn[${Me.XTarget[${X}].ID}].PctHPs} ${Spawn[${Me.XTarget[${X}].ID}].ID} WIZ
+	/if (${Spawn[${Me.XTarget[${X}].ID}].PctHPs} <= ${WARPoint} && ${Spawn[${Me.XTarget[${X}].ID}].Distance}<=200 && ${Spawn[${Me.XTarget[${X}].ID}].Type.Equal[PET]} && ${Spawn[${Me.XTarget[${X}].ID}].Level} >99 ) {
+		/call Heal ${Spawn[${Me.XTarget[${X}].ID}].PctHPs} ${Spawn[${Me.XTarget[${X}].ID}].ID} WAR
+		/return
+	} else 	/if (${Spawn[${Me.XTarget[${X}].ID}].Type.NotEqual[Corpse]} && ${Spawn[${Me.XTarget[${X}].ID}].PctHPs} <= ${${Spawn[${Me.XTarget[${X}].ID}].Class.ShortName}Point} && ${Spawn[${Me.XTarget[${X}].ID}].Distance}<=200 && ${Spawn[${Me.XTarget[${X}].ID}].Type.Equal[PC]}) {
+		/call Heal ${Spawn[${Me.XTarget[${X}].ID}].PctHPs} ${Spawn[${Me.XTarget[${X}].ID}].ID} ${Spawn[${Me.XTarget[${X}].ID}].Class.ShortName} 
+		/return		
+	} else 	/if (${Spawn[${Me.XTarget[${X}].ID}].Type.NotEqual[Corpse]} && ${ProtectNPC} && ${ProtectNPCList.Find[${Me.XTarget[${X}].Name}]} && ${Spawn[${Me.XTarget[${X}].ID}].PctHPs} <= 75 && ${Spawn[${Me.XTarget[${X}].ID}].Distance}<=200 && ${Spawn[${Me.XTarget[${X}].ID}].Type.Equal[NPC]}) {
+		/call Heal ${Spawn[${Me.XTarget[${X}].ID}].PctHPs} ${Spawn[${Me.XTarget[${X}].ID}].ID} WIZ
+		/return
+	}
 }
 /next X
 |--------Looks for Tanks in the Raid to add to the extended window.
@@ -1093,10 +1134,10 @@ Sub RaidBuff
 /declare RaidBuffID int local
 /declare RaidSpellBase string local
 /declare RaidCount int local
-/if (${Raid.Members} && ${Me.PctMana} > 10 && ${SpawnCount[raid radius 100]}) {
+/if (${Raid.Members} && ${Me.PctMana} > 10 && ${SpawnCount[raid radius 100]} && !${Me.Casting.ID}) {
 	/varset RaidCount ${SpawnCount[raid radius 100]}
 	/for i 1 to ${RaidCount}
-		/varset RaidMemberID ${NearestSpawn[${i}, raid radius 100].ID}
+		/varset RaidMemberID ${Raid.Member[${i}].ID}
 		/for x 1 to ${RaidBuffTotal}
 		/varset RaidBuffID ${Spell[${RaidBuff${x}}].ID}
 		/if (!${RaidBuffTimer${RaidBuffID}${RaidMemberID}} && ${RaidBuffClass${x}.Find[${Spawn[${RaidMemberID}].Class.Name}]} && ${Spawn[${RaidMemberID}].Type.Equal[pc]} && ${Spawn[${RaidMemberID}].Distance} < 100 && ${Me.PctMana}>=10) {
@@ -1106,30 +1147,27 @@ Sub RaidBuff
 			/target ID ${RaidMemberID}
 			/delay 3 ${Target.ID}==${RaidMemberID}
 			/delay 3 ${Target.BuffCount}
-			/delay 3
-			/for y 1 to ${Target.BuffCount}
-			/if (${RaidBuffCast${x}.Find[rk. iii]}) {
-				/varset RaidSpellBase ${RaidBuffCast${x}.Left[-7]}
+			/delay 1s
+			/if (${RaidBuff${x}.Find[rk. iii]}) {
+				/varset RaidSpellBase ${RaidBuff${x}.Left[-7]}
 			} else /if (${RaidBuffCast${x}.Find[rk. ii]})  {
-				/varset RaidSpellBase ${RaidBuffCast${x}.Left[-6]}
+				/varset RaidSpellBase ${RaidBuff${x}.Left[-6]}
 			} else {
-				/varset RaidSpellBase ${RaidBuffCast${x}}
-			}		
+				/varset RaidSpellBase ${RaidBuff${x}}
+			}	
+			/for y 1 to ${Target.BuffCount}	
 			/if (!${Spell[${Target.Buff[${y}]}].WillStack[${Spell[${RaidBuffID}].Name}]} && ${Target.Buff[${y}].ID}) {
 				/call CreateTimer RaidBuffTimer${RaidBuffID}${RaidMemberID} ${Spell[${RaidBuffID}].Duration.TotalSeconds}s
 				/goto :next
 			}
 			/next y
-			/if (${Target.Buff[${RaidSpellBase}].ID} || ${Target.Buff[${RaidSpellBase} rk. ii].ID} || ${Target.Buff[${RaidSpellBase} rk. iii].ID} ) {	
+			/if (!${Target.Buff[${RaidSpellBase}].ID} && !${Target.Buff[${RaidSpellBase} rk. ii].ID} && !${Target.Buff[${RaidSpellBase} rk. iii].ID} ) {
+				/call castSpell "${RaidBuffCast${x}}" ${BuffGem} ${RaidMemberID} 
 				/call CreateTimer RaidBuffTimer${RaidBuffID}${RaidMemberID} ${Spell[${RaidBuffID}].Duration.TotalSeconds}s
-				/goto :next
-			} else { 		
-				/call castSpell "${RaidBuffCast${x}}" ${BuffGem} ${RaidMemberID}
-				/call CreateTimer RaidBuffTimer${RaidBuffID}${RaidMemberID} ${Spell[${RaidBuffID}].Duration.TotalSeconds}s
-				/delay 1
 				/return
-			}
-			:skip
+			} else {
+				/call CreateTimer RaidBuffTimer${RaidBuffID}${RaidMemberID} ${Spell[${RaidBuffID}].Duration.TotalSeconds}s
+			} 
 		}
 		:next
 		/next x	
@@ -1161,15 +1199,26 @@ Sub ReturnCurrentGroup
 } 
 /return ${GroupList}
 
-Sub SmartAssist(MyMA)
-/if (!${Me.XTarget[1]].Equal[${MyMA}]}) {
-	/xtarget set 1 ${MyMA}
-	/delay 5 ${Me.XTarget[1].Equal[${MyMA}]}
-}
-/if (${Target.ID} != ${Me.XTarget[1]]})
-/return
-
 Sub LookForString(StringToCheck,StringToCheckAgainst)
 /if (${StringToCheckAgainst.Find[${StringToCheck}]}) /return TRUE
 /return FALSE
+
+Sub RaidZone
+/if (${Window[Dynamiczonewnd]}) /squelch /windowstate Dynamiczonewnd close
+/if (${Zone.Name.Equal[Heart of Fear: The Epicenter]}) {
+	/if (${SpawnCount[npc radius 30 "Impalement crystal"]}) {
+		/declare tempx float local ${Me.X}
+		/declare tempy float local ${Me.Y}
+		/moveto loc 158 -222
+		/delay 6s !${SpawnCount[npc radius 30 "Impalement crystal"]}
+		/moveto stop
+		/delay 2s
+		/moveto loc ${tempy} ${tempyx}
+		/delay 4s
+	}
+}
+/return
+
+
+
 

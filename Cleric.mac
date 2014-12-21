@@ -44,12 +44,12 @@ Sub main
 	/varset tankclass ${Target.Class.Name}
 }
 
-/echo AFCleric Active Version 1.72
+/echo AFCleric Active Version 1.74
 /echo Casting ${HealSpell} on ${tankname} at ${startHeal}% HP
 /echo Heals will be interrupted above ${stophealpoint} HP
 /if (${LockTank}) /echo Will lock target on tank.
 /if (!${LockTank}) /echo Will not lock target on tank.
-/if (${GeneralVersion} < 1.36) /Echo You're using an old General.inc file. Please update your General.inc file at http://github.com/nytemyst.com/git for best performance.
+/if (${GeneralVersion} < 1.40) /Echo You're using an old General.inc file. Please update your General.inc file at http://github.com/nytemyst.com/git for best performance.
 /if (${UseIRC}) /call Irc
    
 :tankwatchloop
@@ -69,6 +69,7 @@ Sub main
 /call Cure
 /if (${DoNuke}) /call nuke
 /if (${DoLeash}) /call Leash
+/if (${Raid.Members}) /call RaidZone
 /if (${Me.AltAbilityReady[blessing of resurrection]} && ${BattleRez} && ${SpawnCount[corpse Guild zradius 50 radius 110]} && !${Me.Song[Touch Of the Divine].ID}) /call battlerez
 /if (!${BuffTimer} && ${usebuffs}) /call CheckIniBuffs
 /if (${QueueCount} && !${Me.Moving} && !${Me.CombatState.Equal[Combat]}) /call DoBuffEvents
@@ -181,7 +182,7 @@ Sub Heal(int MyHealth,int MyTarget,MyClass)
 	/for X 0 to ${Group.Members}
 	/if ((${Group.Member[${X}].Type.Equal[pc]} || ${Group.Member[${X}].Type.Equal[Mercenary]}) && !${Group.Member[${X}].Dead} && ${Group.Member[${X}].ID} && ${Group.Member[${X}].PctHPs}<=${WorstHP} && ${Group.Member[${X}].Distance}<=${Spell[${HealSpell}].MyRange} && ${Group.Member[${X}].PctHPs}<=${${Group.Member[${X}].Class.ShortName}Point} && !${FoundTank}) {
 		/if (${HealTanksFirst} && ${Select[${Group.Member[${X}].Class.ShortName},SHD,WAR,PAL]} && ${Group.Member[${X}].PctHPs} <= ${Math.Calc[${${Group.Member[${X}].Class.ShortName}Point}-(${${Group.Member[${X}].Class.ShortName}Point}*.25)]}) {
-			/multiline ; /varset WorstHurtID ${Group.Member[${X}].ID}; /varset WorstHurt ${Group.Member[${X}].Name}; /varset WorstHP ${Group.Member[${X}].PctHPs}; /varset WorstClass ${Group.Member[${X}].Class.ShortName}; /varset AnybodyHurt 1; /varset FoundTank TRUE; 
+			/multiline ; /varset WorstHurtID ${Group.Member[${X}].ID}; /varset WorstHurt ${Group.Member[${X}].Name}; /varset WorstHP ${Group.Member[${X}].PctHPs}; /varset WorstClass ${Group.Member[${X}].Class.ShortName}; /varset AnybodyHurt 1; /varset FoundTank TRUE;
 		} else {
 			/multiline ; /varset WorstHurtID ${Group.Member[${X}].ID}; /varset WorstHurt ${Group.Member[${X}].Name}; /varset WorstHP ${Group.Member[${X}].PctHPs}; /varset WorstClass ${Group.Member[${X}].Class.ShortName}; /varset AnybodyHurt 1
 		}	
@@ -192,8 +193,11 @@ Sub Heal(int MyHealth,int MyTarget,MyClass)
 } 
 /if (!${AnybodyHurt}) {
 	/if (${HealList.Find[${Me.Casting}]} || ${Me.Casting.Name.Equal[${GroupHeal}]}) /call interrupt
-	/if (${Macro.Return.Equal[FALSE]} && ${Name} && ${Me.SpellReady[${groupdurationhealspell}]} && ${Spell[${groupdurationhealspell}].Stacks[0]} && !${Me.Song[${groupdurationhealspell}].ID} && !${Me.Song[Celestial regeneration].ID}) /call CastSpell "${groupdurationhealspell}" ${grouphealgem} ${Me.ID}	
-	/if ((!${RaidBuffTimer} && ${DoRaidBuff} && ${Raid.Members}) || (${Raid.Members} && (${DoRaidBuffDownTimeOnly} || ${DoRaidBuff}) && !${Me.CombatState.Equal[Combat]})) /call RaidBuff
+	/if (${Name} && ${Me.SpellReady[${groupdurationhealspell}]} && ${Spell[${groupdurationhealspell}].Stacks[0]} && !${Me.Song[${groupdurationhealspell}].ID} && !${Me.Song[Celestial regeneration].ID}) /call CastSpell "${groupdurationhealspell}" ${grouphealgem} ${Me.ID}	
+	/if (${HealPet}) /call HealPet
+	/if (!${RaidBuffTimer} && ${DoRaidBuff} && ${Raid.Members}) {
+		/if ((${DoRaidBuffDownTimeOnly} && !${Me.CombatState.Equal[Combat]}) || !${DoRaidBuffDownTimeOnly}) /call RaidBuff
+	}
 	/if (!${Me.CombatState.Equal[Combat]}) /call BCBuff
 	/return
 }
@@ -218,10 +222,23 @@ Sub Heal(int MyHealth,int MyTarget,MyClass)
 	/call CastSpell "${RenewalSpell1}" ${RenewalSpell1Gem} ${WorstHurtID} CheckAll	
 	/if (${Me.SpellReady[${RenewalSpell2}]}) /call CastSpell "${RenewalSpell2}" ${RenewalSpell1Gem} ${WorstHurtID} CheckAll
 	/if (${Me.SpellReady[${RenewalSpell3}]}) /call CastSpell "${RenewalSpell3}" ${RenewalSpell1Gem} ${WorstHurtID} CheckAll
-	/if (${Spawn[${WorstHurt}].PctHPs} <= ${${WorstClass}Point}*.6) /call CastSpell "${patchheal}" ${patchhealgem} ${WorstHurtID}) Checkall
+	/if (${Spawn[${WorstHurt}].PctHPs} <= ${${WorstClass}Point}*.9) /call CastSpell "${patchheal}" ${patchhealgem} ${WorstHurtID}) Checkall
 	/call CastSpell "${HealSpell}" ${healspellgem} ${WorstHurtID} CheckAll
 }
 /varset stophealpoint ${defaultstophealpoint}
+/return
+
+Sub HealPet
+/declare x int local
+/for x 0 to ${Group}
+/if (${Group.Member[${x}].Pet.ID} && ${Group.Member[${x}].Pet.Distance}<=200 && ${Group.Member[${x}].Pet.PctHPs}<=${WARPoint} ) {
+	/varset WorstHurt ${Group.Member[${x}].Pet.Name}
+	/varset WorstHurtID ${Group.Member[${x}].Pet.ID}
+	/varset WorstHP ${Group.Member[${x}].Pet.PctHPs}
+	/call Heal ${WorstHP} ${WorstHurtID} WAR
+	/return
+ }
+/next x
 /return
 
 Sub CheckName
@@ -262,7 +279,8 @@ Sub CheckHP
 /if (!${Me.Casting.ID} || ${Me.Dead} ||${Died}) /return
 |  ${castEndTime} is variable to express time remaining, in deciseconds, from spell_routines.inc
  /if (${HealList.Find[${Me.Casting}]}) {
-	/if (${Target.PctHPs}>=${defaultstophealpoint} && ${castEndTime} < 5 || (${Target.PctHPs} == 100 && !${startHeal} == 100)) {
+	/if ((${Target.PctHPs} == 100 && ${castEndTime} > 3) || (${Target.PctHPs} == 100 && !${startHeal} == 100)) {
+		/echo Canceling heal cause ${Target.CleanName} is safe now.
 		/call Interrupt
 		/return
 	}
@@ -375,26 +393,27 @@ Sub DivineArb
 Sub Mana
 /doevents  
 /if (${DoYaulp}) {
-	/if (!${Me.Buff[${yaulpspell}].ID} && ${Spell[${yaulpspell}].Stacks} && !${Me.Sitting}) /call CastSpell "${yaulpspell}" ${YaulpGem} 0
-} else /if (${Me.AltAbilityReady[Yaulp]} && ${Spell[Yaulp].Stacks} && !${Me.Buff[Yaulp].ID} && !${Me.Sitting}) {
+	/if (!${Me.Buff[${yaulpspell}].ID} && ${Spell[${yaulpspell}].Stacks} && !${Me.Sitting} && ${Me.CombatState.Equal[Combat]} ) /call CastSpell "${yaulpspell}" ${YaulpGem} 0
+} else /if (${Me.AltAbilityReady[Yaulp]} && ${Spell[Yaulp].Stacks} && !${Me.Buff[Yaulp].ID} && !${Me.Sitting} && ${Me.CombatState.Equal[Combat]}) {
 	/call CastSpell "Yaulp" alt 0
 }
 /if (${Me.PctMana}< 60 && ${Me.AltAbilityReady[Veturika's perseverance]}) /call cast "Veturika's perseverance" alt 0
+/if (${Me.PctMana}< 40 && ${Me.AltAbilityReady[Quiet Miracle]} && !${UseQMOnGroup}) /call CastSpell "Quiet Miracle" alt ${Me.ID}
 /call Rod
 /call QuietMiracle
 /return
 
 Sub QuietMiracle
 /declare i int local
-/if (${Group} && ${Me.AltAbilityReady[Quiet Miracle]}) {
+/if (${Group} && ${Me.AltAbilityReady[Quiet Miracle]} && ${UseQMOnGroup}) {
 	 /for i 1 to ${Group}
-	 	/if (!${QM${Target.ID}} && ${Group.Member[${i}].Type.NotEqual[corpse]} && ${Group.Member[${i}].ID} && ${Group.Member[${i}].Distance} < 100 && ${Group.Member[${i}].CurrentMana} <40 && ${CanCast.Find[${Group.Member[${i}].Class}]}) {
+	 	/if (!${QM${Group.Member[${i}].ID}} && ${Group.Member[${i}].Type.NotEqual[corpse]} && ${Group.Member[${i}].ID} && ${Group.Member[${i}].Distance} < 100 && ${Group.Member[${i}].CurrentMana} <40 && ${CanCast.Find[${Group.Member[${i}].Class}]}) {
 	 		/target id ${Group.Member[${i}].ID}
 	 		/delay 3 ${Target.ID}==${Group.Member[${i}].ID}
 			/if (${Target.Buff[Shroud of the Miracle].ID}) {
-				/call CreateTimer QM${Target.ID} 1m
+				/call CreateTimer QM{Group.Member[${i}].ID} 1m
 			}
-	 		/call cast "Quiet Miracle" alt 0
+	 		/call castSpell "Quiet Miracle" alt 0
 	 		/return
 	 	}
 	/next i
@@ -480,10 +499,10 @@ Sub CheckCured
 Sub BattleRez
 /varset MacroState BattleRez
 /declare i int local
-/if (${SpawnCount[corpse Guild zradius 75 radius 110 class cleric]}) {
-	/for i 1 to ${SpawnCount[Corpse Guild zradius 75 radius 110 class cleric]}
-	/if (!${corpsetimer${NearestSpawn[${i},Corpse Guild zradius 75 radius 110 class cleric].ID}}) {
-		/varset RezID ${NearestSpawn[${i},Corpse Guild zradius 75 radius 110 class cleric].ID}
+/if (${SpawnCount[pccorpse raid zradius 75 radius 110 class cleric]} && ${Raid.Members}) {
+	/for i 1 to ${SpawnCount[pccorpse raid zradius 75 radius 110 class cleric]}
+	/if (!${corpsetimer${NearestSpawn[${i},pccorpse raid zradius 75 radius 110 class cleric].ID}}) {
+		/varset RezID ${NearestSpawn[${i},pccorpse raid zradius 75 radius 110 class cleric].ID}
 		/if (${DivineRezCleric} && ${Me.AltAbilityReady[Divine Resurrection]}) {
 			/if (${AnnounceRez}) /${RezChannel} Rezzing ${Spawn[${RezID}].DisplayName}
 			/call RezTarget ${RezID} "Divine Resurrection"		
@@ -495,20 +514,30 @@ Sub BattleRez
 	}
 	/next i
 } 
-/if (${SpawnCount[corpse Guild zradius 75 radius 110 tank]}) {
-	/for i 1 to ${SpawnCount[Corpse Guild zradius 75 radius 110 tank]}
-	/if (!${corpsetimer${NearestSpawn[${i},Corpse Guild zradius 75 radius 110 tank].ID}}) {
-		/varset RezID ${NearestSpawn[${i},Corpse Guild zradius 75 radius 110 tank].ID}
+/if (${SpawnCount[pccorpse raid zradius 75 radius 110 class tank]} && ${Raid.Members}) {
+	/for i 1 to ${SpawnCount[pccorpse raid zradius 75 radius 110 class tank]}
+	/if (!${corpsetimer${NearestSpawn[${i},pccorpse raid zradius 75 radius 110 class tank].ID}}) {
+		/varset RezID ${NearestSpawn[${i},pccorpse raid zradius 75 radius 110 class tank].ID}
 		/if (${AnnounceRez}) /${RezChannel} Rezzing ${Spawn[${RezID}].DisplayName}
 		/call RezTarget ${RezID} "Blessing of Resurrection"
 		/return
 	}
 	/next i
 } 
-/if (${SpawnCount[corpse Guild zradius 75 radius 110]}) {
-	/for i 1 to ${SpawnCount[Corpse Guild zradius 75 radius 110]}
-	/if (!${corpsetimer${NearestSpawn[${i},Corpse Guild zradius 75 radius 110].ID}}) {
-		/varset RezID ${NearestSpawn[${i},Corpse Guild zradius 75 radius 110].ID}
+/if (${SpawnCount[pccorpse raid zradius 75 radius 110]} && ${Raid.Members}) {
+	/for i 1 to ${SpawnCount[pccorpse raid zradius 75 radius 110]}
+	/if (!${corpsetimer${NearestSpawn[${i},pccorpse raid zradius 75 radius 110].ID}}) {
+		/varset RezID ${NearestSpawn[${i},pccorpse raid zradius 75 radius 110].ID}
+		/if (${AnnounceRez}) /${RezChannel} Rezzing ${Spawn[${RezID}].DisplayName}
+		/call RezTarget ${RezID} "Blessing of Resurrection"
+		/return
+	}
+	/next i
+} 
+/if (${SpawnCount[pccorpse guild zradius 75 radius 110]} && !${Raid.Members}) {
+	/for i 1 to ${SpawnCount[pccorpse Guild zradius 75 radius 110]}
+	/if (!${corpsetimer${NearestSpawn[${i}, pccorpse Guild zradius 75 radius 110].ID}}) {
+		/varset RezID ${NearestSpawn[${i}, pccorpse Guild zradius 75 radius 110].ID}
 		/if (${AnnounceRez}) /${RezChannel} Rezzing ${Spawn[${RezID}].DisplayName}
 		/call RezTarget ${RezID} "Blessing of Resurrection"
 		/return
@@ -753,6 +782,9 @@ Sub Event_ChangeTank
 Sub SpecialSubs
 /if (${Me.Pet.ID} && ${Me.Pet.Body.ID}!=28) /pet get lost
 /if (${DoLeashToon}) /call DoLeashPerson
+/if (${Window[TaskSelectWnd]}) {
+	/nomodkey /notify TaskSelectWnd TSEL_AcceptButton leftmouseup
+}
 /return
 
 
@@ -904,6 +936,7 @@ Sub GeneralDeclares
 /call DeclareIniVar NumSelfBuff string SelfBuffs 1
 /call DeclareIniVar ignorerez string Battlerez "Biggie,2pac"
 /call DeclareIniVar RaidBuffTotal int RaidBuffs 1
+/call DeclareIniVar UseQMOnGroup int Settings 0
 /Call DeclareIniVar ItemShrink string Settings ""
 /Call DeclareIniVar DivineRezCleric int Settings 0
 /call DeclareIniVar AnnounceRez int Settings 0

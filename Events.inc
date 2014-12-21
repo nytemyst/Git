@@ -126,7 +126,43 @@
 #event Bixie2Red "#*#red cloud forms above#*#"
 #event Bixie2Yellow "#*#yellow cloud forms above#*#"
 #event Bixie2Safe "#*#spines rains down around#*#"
+#event ToRDSOn                "#*#The mark of Nife flashes before your eyes#*#"
+#event ToRDSOff                "#*#The mystic symbol fades#*#"
+#Event ToRClay                "#*#Lord Kyle Bayle raises his ancient claymore high overhead#*#"
+#Event ToRClaySafe        "#*#Lord Kyle Bayle swings his ancient claymore with frightening force#*#"
 
+Sub Event_ToRClaySafe
+    /if (${MeleeList.Find[${Me.Class.Name}]}) /target clear
+/return
+
+Sub Event_ToRClay
+    /if (${MeleeList.Find[${Me.Class.Name}]}) {
+        /target myself
+        /delay 1s ${Target.ID}==${Me.ID}
+        :TopClay
+          /doevents
+          /call Leash
+          /delay 10 ${Target.ID}!=${Me.ID}
+        /if (${Target.ID}==${Me.ID}) /goto :TopClay
+    }
+/return
+
+Sub Event_ToRDSOff
+    /bc DS Gone!
+    /if (${MeleeList.Find[${Me.Class.Name}]}) /target clear
+/return
+
+Sub Event_ToRDSOn
+    /bc I have DS on
+    /if (${MeleeList.Find[${Me.Class.Name}]}) {
+        /target myself
+        /delay 1s ${Target.ID}==${Me.ID}
+        :TopDS
+          /doevents
+          /delay 10 ${Target.ID}!=${Me.ID}
+        /if (${Target.ID}==${Me.ID}) /goto :TopDS
+    }
+/return
 Sub Event_Bixie2Safe(string line)
 /if (${line.Find[${Me}]}) /return Safe
 /return 
