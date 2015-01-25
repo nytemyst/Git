@@ -60,7 +60,7 @@ Sub DPS
 :killtarget
 /Echo ${Target.CleanName} is at the distance of: ${Target.Distance}
 :Combat
-/if (${SmartAssist}) /call GetTarget
+/if (${UseSmartAssist}) /call GetTarget
 /if (${Died} || ${Me.Dead}) /return
 /if (!${Spawn[${CurrentTarget}].ID} || ${Spawn[${CurrentTarget}].Type.Equal[corpse]} || !${Target.ID}) /varset validTarget 0
 /doevents
@@ -84,18 +84,22 @@ Sub SpecialNukes
 /if (${Target.Distance}<250 && !${Me.SpellReady[${SmallNuke}]}) /call CastSpell "Force of Ice" alt ${mobid} checkall
 /if (!${Snared} && ${Me.AltAbilityReady[Atol's Shackles]} && ${Target.Fleeing} && ${Target.PctHPs} < 30 && ${DoSnare}) /call NukeCast "Atol's Shackles" Alt "Snare"
 /delay 2s ${Me.SpellReady[1]} || ${Me.SpellReady[2]} || ${Me.SpellReady[3]} || ${Me.SpellReady[4]} || ${Me.SpellReady[5]} || ${Me.SpellReady[6]} || ${Me.SpellReady[7]} || ${Me.SpellReady[8]}
-/if (${Me.AltAbilityReady[Improved Twincast]} && ${Target.PctHPs}<${WhenToBurn} && ${NameList.Find[${Target.CleanName}]} && (!${Me.Buff[Twincast].ID} || !${Me.Buff[Twincast rk. ii].ID} || !${Me.Buff[Twincast rk. iii].ID})) {
-	/call castspell "Improved Twincast" alt 0
-} else /if (${Me.SpellReady[${TwinCast}]} && !${Me.Buff[Twincast].ID} && ${Target.PctHPs}<${WhenToBurn} && ${NameList.Find[${Target.CleanName}]} || !${Raid.Members} && ${Me.SpellReady[${TwinCast}]} && ${SpawnCount[npc radius 75 los targetable]} > 4) {
-	/call castSpell "${TwinCast}" gem1 0
+/if ((${Target.PctHPs} <${WhenToBurn} && ${NameList.Find[${Target.CleanName}]}) || ${BurnTimer} || (!${Raid.Members} && ${Me.SpellReady[${TwinCast}]} && ${SpawnCount[npc radius 75 los targetable]} > 4)) {
+	/if (!${Me.Buff[Twincast].ID} && !${Me.Buff[Twincast rk. ii].ID} && !${Me.Buff[Twincast rk. iii].ID}) {
+		/if (${Me.AltAbilityReady[Improved Twincast]}) {
+			/call CastSpell "Improved TwinCast" alt 0
+		} else /if (${Me.SpellReady[${TwinCast}]}) {
+			/call CastSpell "${TwinCast}" gem1 0
+		}
+	} else /if (${Me.AltAbilityReady[Prolonged Destruction]} ) {
+			/call CastSpell "Prolonged Destruction" alt 0 
+			/call Burn
+	} else /if (${Me.AltAbilityReady[Arcane Destruction]}  && !${Me.Song[Prolonged Destruction].ID}) {	
+			/call CastSpell "Arcane Destruction" alt 0 
+			/call Burn
+	}
 }
-/if (${Me.AltAbilityReady[Prolonged Destruction]} && ${Target.PctHPs}<${WhenToBurn} && ${NameList.Find[${Target.CleanName}]} && ${Me.Buff[Twincast].ID}) {
-	/call CastSpell "Prolonged Destruction" alt 0 
-	/call Burn
-} else /if (${Me.AltAbilityReady[Arcane Destruction]} && ${Target.PctHPs}<${WhenToBurn} && ${NameList.Find[${Target.CleanName}]} && !${Me.Song[Prolonged Destruction].ID} && (${Me.Buff[Twincast].ID} || ${Me.Buff[Twincast rk. ii].ID} || ${Me.Buff[Twincast rk. iii].ID})) {	
-	/call CastSpell "Arcane Destruction" alt 0 
-	/call Burn
-}
+
 /return
 
 Sub Burn
@@ -193,6 +197,9 @@ Sub SpecialSubs
 	/delay 4s ${ZlexakTimer} > 190
 }
 /if (${DoLeashToon}) /call DoLeashPerson
+/if (${Window[TaskSelectWnd]}) {
+	/nomodkey /notify TaskSelectWnd TSEL_AcceptButton leftmouseup
+}
 /return
 |=================================================================
 Sub Harvestcheck
@@ -215,25 +222,25 @@ Sub CheckBuffs
 /call ReturnCurrentGroup
 /if (${Macro.Return.Find[brd]}) /varset Bard True
 	 /if (!${Me.Buff[Kerafyrm's Prismatic familiar].ID} && ${Me.AltAbilityReady[Kerafyrm's prismatic familiar]}) {
-	 	/if (${Me.Buff[${mainfamiliar}].ID}) /notify BuffWindow Buff${Math.Calc[${Me.Buff[${mainfamiliar}].ID}-1].Int} leftmouseup
-	 	/if (${Me.Buff[Improved Familiar].ID}) /notify BuffWindow Buff${Math.Calc[${Me.Buff[Improved Familiar].ID}-1].Int} leftmouseup
-	 	 /if (${Me.Buff[Familiar: Emerald Sokokar].ID}) /notify BuffWindow Buff${Math.Calc[${Me.Buff[Familiar: Emerald Sokokar].ID}-1].Int} leftmouseup
+	 	/if (${Me.Buff[${mainfamiliar}].ID}) /removebuff ${mainfamiliar}
+	 	/if (${Me.Buff[Improved Familiar].ID}) /removebuff Improved Familiar
+	 	 /if (${Me.Buff[Familiar: Emerald Sokokar].ID}) /removebuff Familiar: Emerald Sokokar
     /if (${Me.AltAbilityReady[Kerafyrm's prismatic familiar]}) /call cast "Kerafyrm's prismatic familiar" alt 2s
     /return
   }
    /if (${Bard} && !${Me.Buff[Improved Familiar].ID} && !${Me.Buff[Kerafyrm's Prismatic Familiar].ID}) {
-    /if (${Me.Buff[${mainfamiliar}].ID}) /notify BuffWindow Buff${Math.Calc[${Me.Buff[${mainfamiliar}].ID}-1].Int} leftmouseup
-      /if (${Me.Buff[Familiar: Emerald Sokokar].ID}) /notify BuffWindow Buff${Math.Calc[${Me.Buff[Familiar: Emerald Sokokar].ID}-1].Int} leftmouseup
+    /if (${Me.Buff[${mainfamiliar}].ID}) /removebuff ${mainfamiliar}
+      /if (${Me.Buff[Familiar: Emerald Sokokar].ID}) /removebuff Familiar: Emerald Sokokar
     /if (${Me.AltAbilityReady[Improved Familiar]}) /call cast "Improved Familiar" alt 2s
    }
 	/if (!${Me.Buff[${mainfamiliar}].ID} && !${Bard} && !${Me.Buff[Kerafyrm's Prismatic Familiar].ID}) {
-	/if (${Me.Buff[Improved Familiar].ID}) /notify BuffWindow Buff${Math.Calc[${Me.Buff[Improved Familiar].ID}-1].Int} leftmouseup
-   /if (${Me.Buff[${firefamiliar}].ID}) /notify BuffWindow Buff${Math.Calc[${Me.Buff[${firefamiliar}].ID}-1].Int} leftmouseup
-   /if (${Me.Buff[${icefamiliar}].ID}) /notify BuffWindow Buff${Math.Calc[${Me.Buff[${icefamiliar}].ID}-1].Int} leftmouseup
-   /if (${Me.Buff[${magicfamiliar}].ID}) /notify BuffWindow Buff${Math.Calc[${Me.Buff[${magicfamiliar}].ID}-1].Int} leftmouseup
+	/if (${Me.Buff[Improved Familiar].ID}) /removebuff Improved Familiar
+   /if (${Me.Buff[${firefamiliar}].ID})  /removebuff ${firefamiliar}
+   /if (${Me.Buff[${icefamiliar}].ID})  /removebuff ${icefamiliar}
+   /if (${Me.Buff[${magicfamiliar}].ID})  /removebuff ${magicfamiliar}
 	/if (${Me.AltAbilityReady[${mainfamiliar}]}) /call cast "${mainfamiliar}" alt 2s		
 	}
-/if (!${Me.Buff[Mana Reverberation].ID} && !${Me.Buff[${MancyProc}].ID} && !${Me.Song[Mana Reverberation].ID} && !${Me.Buff[Mana Reverberation rk. ii].ID} && !${Me.Buff[Mana Reverberation rk. iii].ID} && !${MeSong[WildSpark Aura Effect iii].ID} && !${Me.Song[WildSpark Aura Effect ii].ID} && !${Me.Song[WildSpark Aura Effect].ID} ) /call castspell "${MancyProc}" alt 0 
+|/if (!${Me.Buff[Mana Reverberation].ID} && !${Me.Buff[${MancyProc}].ID} && !${Me.Song[Mana Reverberation].ID} && !${Me.Buff[Mana Reverberation rk. ii].ID} && !${Me.Buff[Mana Reverberation rk. iii].ID} && !${MeSong[WildSpark Aura Effect iii].ID} && !${Me.Song[WildSpark Aura Effect ii].ID} && !${Me.Song[WildSpark Aura Effect].ID} ) /call castspell "${MancyProc}" alt 0 
 /if (${Me.Height}>2.03 && ${FindItem[${ItemShrink}].ID}) /call CastSpell "${ItemShrink}" item ${Me.ID}
 /return
 
@@ -295,7 +302,9 @@ Sub GetTarget
 /delay 1
 /declare i int local
 /if (${Me.Moving}) /return
-/if (${Spawn[${MainAssist}].ID}) {
+/if (${UseSmartAssist}) {
+	/call Smartassist
+} else /if (${Spawn[${MainAssist}].ID}) {
     /assist ${MainAssist}
   } else /if (${Spawn[${SecondAssist}].ID}) {
     /assist ${SecondAssist}
@@ -320,6 +329,22 @@ Sub GetTarget
    	:notgood
 /varset validTarget 0
 /varset CurrentTarget 0
+}
+/return
+
+
+Sub SmartAssist
+/if (${Me.XTarget[1].Type.NotEqual[Group Assist Target]} && !${Raid.Members}) {
+	/xtarget set 1 groupassisttarget
+	/delay 1s ${Me.XTarget[1].Type.Equal[Group Assist Target]}
+} else /if (${Me.XTarget[1].TargetType.NotEqual[Raid Assist 1 Target]} && ${Raid.Members}) {
+    /xtarget set 1 raidassist1target
+    /delay 1s ${Me.XTarget[1].Type.Equal[Group Assist Target]}
+}
+/if (${Target.ID}!=${Me.XTarget[1].ID} && ${Spawn[${Me.XTarget[1].ID}].Type.Equal[NPC]}) {
+	/echo Need to target the MA's mob!
+	/xtarget target 1
+	/delay 1s ${Target.ID}==${Me.XTarget[1].ID}
 }
 /return
 
@@ -468,7 +493,7 @@ Sub GeneralDeclares
 /Call DeclareIniVar MainAssist string Settings somebody /ma
 /Call DeclareIniVar SecondAssist string Settings somebody
 /Call DeclareIniVar TrippleAssist string Settings somebody
-/call DeclareIniVar SmartAssist int Settings 0 /smartassist
+/call DeclareIniVar UseSmartAssist int SETTINGS 0 /smartass
 /call DeclareIniVar DoLoot int Settings 0 /doloot
 /call DeclareIniVar doxuzl int Settings 0 /sword 
 /call DeclareIniVar DoRain int Settings 0 /rain

@@ -19,7 +19,7 @@
 Sub GeneralDeclares2
    /echo Setting up all the common Variables.
    /if (!${Defined[castReturn]}) /declare castReturn string outer CAST_CANCELLED
-   /declare GeneralVersion float  outer 1.40
+   /declare GeneralVersion float  outer 1.50
    /declare noInvis        int    outer 1
    /declare follname	   string outer
    /declare MacroState     string outer
@@ -39,6 +39,7 @@ Sub GeneralDeclares2
    /declare NameIni        string outer AF_Names.ini
    /declare RangeMobsIni   string outer AF_Rangemobs.ini
    /declare currentZone    int    outer 0
+   /declare TankList       string outer Shadow Knight|Paladin|Warrior
    /declare BuffList       string outer Enchanter|Shaman|Cleric|Druid|Magician
    /declare CureList       string outer Shaman|Cleric|Druid|
    /declare MeleeList      string outer Warrior|Rogue|Beastlord|Monk|Shadow knight|Paladin|Berserker|Bard|Ranger|
@@ -72,12 +73,15 @@ Sub GeneralDeclares2
    /Call    DeclareIniVar  EventsMaster  string GeneralSettings "Bobby"
    /call 	DeclareIniVar  UseIRC 		 string GeneralSettings 0   
    /call 	DeclareIniVar  ChatVerbose   Bool	GeneralSettings TRUE	
+   /call 	DeclareIniVar  Debug		 Bool	GeneralSettings FALSE
    /call	CleanUpXTarget
    /if (!${CureList.Find[${Me.Class.Name}]}) /call    DeclareIniVar  AutoBalance   int    GeneralSettings 0 /autobalance
    /if (!${CureList.Find[${Me.Class.Name}]}) /call    DeclareIniVar  AutoBalanceHPCheck int GeneralSettings 5 /autobalancehp
    /if (${CureList.Find[${Me.Class.Name}]})  /call    DeclareIniVar  ProtectOutsideGroup bool GeneralSettings false /protectoutside
+   /if (${CureList.Find[${Me.Class.Name}]})  /call    DeclareIniVar  ProtectInsideRaid bool GeneralSettings false /ProtectInsideRaid
    /if (${CureList.Find[${Me.Class.Name}]})  /call    DeclareIniVar  ProtectNPC bool GeneralSettings false /protectnpc
    /if (${CureList.Find[${Me.Class.Name}]} && ${ProtectOutsideGroup})  /call    DeclareIniVar  ProtectOutsidePlayersList string HealingTweaks "|bobby|camille|joe|"
+   /if (${CureList.Find[${Me.Class.Name}]} && ${ProtectInsideRaid})  /call    DeclareIniVar  ProtectInsideRaidPlayersList string HealingTweaks "|bobby|camille|joe|"
    /if (${CureList.Find[${Me.Class.Name}]} && ${ProtectNPC})  /call    DeclareIniVar  ProtectNPCList string HealingTweaks "|bobby|camille|joe|"
    /squelch /alias /exclude /echo exclude:
    /squelch /alias /named /echo named:
@@ -170,6 +174,7 @@ Sub Obstacle
    /return
 
 Sub Event_Zone
+/declare x int local
    /if ( ${MA.NotEqual[Somebody]} && ${Spawn[pc ${MA}].ID} ) {
       /varset MaID ${Spawn[pc ${MA}].ID}
    } else {
@@ -223,6 +228,12 @@ Sub Event_Zone
       /echo RangeMobList: ${RangeMobList}
    }
  }
+ /squelch /alert clear 200
+/if (${ExcludeList.Find[|]} && ${Math.Calc[${ExcludeList.Count[|]}-1]} ) {
+	/for x 1 to ${Math.Calc[${ExcludeList.Count[|]}-1]}
+		/squelch /alert add 200 ${ExcludeList.Arg[${x},|]}
+	/next x		
+}
    /return
 
 Sub Follow(string line,string sender,string name)
@@ -299,48 +310,50 @@ Sub Stop
 /varset stakeX ${Me.X}
 /varset stakeY ${Me.Y}
 /echo dropping a new leash point (stop)
-/if (${LeashTag}) /leash 1
+|/if (${LeashTag}) /leash 1
 /return
 
 Sub Event_IRC(string ChatType,string Sender,string ChatText,string Extra)
 /if (${MasterList.Find[${Sender}]} && ${ChatText.Left[1].Equal[/]}) /docommand ${ChatText} 
+/if (${Window[ConfirmationDialogBox]} && ${ChatText.Find[TakeTL]}) {
+	/if (${Window[ConfirmationDialogbox].Child[CD_TextOutPut].Text.Find[Grey Hawke]}) /nomodkey /notify ConfirmationDialogBox Yes_Button leftmouseup
+	/return
+}
 /if (${Window[LargeDialogWindow]} && ${ChatText.Equal[banner]}) {
 	/if (${Window[LargeDialogWindow].Child[LDW_TextBox].Text.Find["Would you like to travel"]}) /nomodkey /notify LargeDialogWindow LDW_YesButton leftmouseup 
 }
-   /if (${ChatText.Equal[follow]}) /call Follow  "tell" "${Sender}" "${ChatText}"
-   /if (${ChatText.Equal[stop]}) {
+/if (${ChatText.Equal[follow]}) /call Follow  "tell" "${Sender}" "${ChatText}"
+/if (${ChatText.Equal[stop]}) {
    	/call Stop "tell" "${Sender}" "{$ChatText}"
-   	/return
-  }
-  /if (${ChatText.Left[5].Equal[Click]}) {
+	/return
+}
+/if (${ChatText.Left[5].Equal[Click]}) {
 	/Call CastItemClicky "${ChatText.Right[-6]}" 
 	/return
-	}
-  /if (${ChatText.Equal[Door]}) {
-  /declare DoorTimer timer local 15s
+}
+/if (${ChatText.Equal[Door]}) {
+	/declare DoorTimer timer local 4s
 	:retrydoortarget
 	/if (!${DoorTimer}) /return
 	/doortarget 
 	/delay 1
-	/if (!${Switch.ID}) {
-		/goto :retrydoortarget
-	}
+	/if (!${Switch.ID}) /goto :retrydoortarget
 	/face door nolook
 	/delay 1
-:retryopendoor
+	:retryopendoor
 	/if (!${DoorTimer}) /return
 	/if (!${Switch.Open}) {
 		/click left door
 		/delay 1s
 		/goto :retryopendoor
 	}
-/return
+	/return
 }
  /if (${Me.Class.Name.Equal[Wizard]} && ${ChatText.Left[6].Equal[Bounce]}) /call Port "${Sender}" "${ChatText.Arg[2, ]}" "${ChatText.Arg[3, ]}" 
    /if (${ChatText.Equal[stopleash]}) /call StopLeash
    /if (${ChatText.Equal[come]} && ${MeleeList.Find[${Me.Class.Name}]}) /call Follow "tell" "${Sender}" "${ChatText}"
    /if (${ChatText.Equal[comehere]} && !${CureList.Find[${Me.Class.Name}]} || ${Me.Class.Name.Equal[Shaman]} && ${ChatText.Equal[comehere]}) /call Follow "tell" "${Sender}" "${ChatText}"
-   /if (${ChatText.Equal[cleartarget]} && ${MasterList.Find[${Sender}]} && ${MeleeList.Find[${Me.Class.Name}]}) /multiline ; /target clear; /varset dispelled 0; /varset Snared 0; /varset CurrentTarget 0
+   /if (${ChatText.Equal[cleartarget]} && ${MasterList.Find[${Sender}]} && ${MeleeList.Find[${Me.Class.Name}]}) /multiline ; /target clear; /varset dispelled 0; /varset Snared 0; /varset CurrentTarget 0; /melee reset; /stick off
    /if ( ( ${ChatText.Equal[cleartarget]} ) && ( ${Me.Class.Name.Equal[Necromancer]} || ${Me.Class.Name.Equal[Wizard]} || ${Me.Class.Name.Equal[Magician]} || ${Me.Class.Name.Equal[Druid]} ) ) {
       /if ( ${Me.Pet.ID} ) /squelch /pet back off
       /target clear
@@ -352,7 +365,7 @@ Sub Event_IRC(string ChatType,string Sender,string ChatText,string Extra)
 	 /delay 1s ${Target.ID} == ${Me.ID}
    	/alt activate 1210
 	/if (${Me.Class.Name.Equal[Cleric]}) {
-	 /delay 4
+	 /delay 3
 	 /alt activate 1212
 	}
    	/delay 1s
@@ -387,16 +400,6 @@ Sub Event_IRC(string ChatType,string Sender,string ChatText,string Extra)
       /call CheckDoBuffs "${ChatText.Arg[2, ]}" "${ChatText.Arg[3, ]}"   
       /return
     }
-   /if (${ChatText.Equal[rezzme]} && ${Me.Class.Name.Equal[cleric]}) {
-      /keypress back
-      /target ${Sender}'s Corpse
-      /delay 3
-      /if (${Target.Type.Equal[corpse]}) {
-         /corpse
-         /delay 3         
-         /call Cast "blessing of resurrection" alt 3s Checkall
-      }
-   }
    /if (${Sender.Equal[${Me}]}) /return
    /if (${ChatText.Equal[rc]} && ${CureList.Find[${Me.Class.Name}]}) {
       /if (${Me.AltAbilityReady[radiant cure]}) /call Cast "radiant cure" alt
@@ -443,8 +446,29 @@ Sub Event_IRC(string ChatType,string Sender,string ChatText,string Extra)
 		/call CreateTimer BurnTimer 5m
 	}
 }
-/if (${ChatText.Arg[1, ].Equal[Burnstop]}) {
-	/Call CreateTimer BurnTimer 0
+/if (${ChatText.Arg[1, ].Equal[Burnstop]}) /Call CreateTimer BurnTimer 0
+/if (${ChatText.Arg[1, ].Equal[hailon]}) {
+	/target npc ${ChatText.Arg[2, ]}
+	/delay 1s
+	/squelch /hail
+}
+/if (${ChatText.Arg[1, ].Equal[saythis]}) {
+	/target clear
+	/target npc ${ChatText.Arg[3, ]}
+	/delay 1s
+	/if (${Target.ID}) /say ${ChatText.Arg[2, ]}	
+}
+
+/if (${ChatText.Arg[1, ].Equal[mgb]}) {
+	/if (${ChatText.Arg[2, ].Equal[heal]} && ${Me.Class.Name.Equal[Cleric]} && ${Me.AltAbilityReady[Mass Group Buff]}) {
+		/call CastSpell "Mass Group Buff" alt 0
+		/delay 5
+		/call CastSpell "Celestial Regeneration" alt 0
+	} else /if (${ChatText.Arg[2, ].Equal[aid]} && ${Me.Class.Name.Equal[Shaman]} && ${Me.AltAbilityReady[Mass Group Buff]}) {
+		/call CastSpell "Mass Group Buff" alt 0
+		/delay 5
+		/call CastSpell "Ancestral Aid" alt 0
+	}
 }
 /return
 
@@ -510,28 +534,28 @@ Sub MemSpell(SpellName,SpellGem)
 
 Sub MedTime
 /varset MacroState MedTime
-/if (${autosit} && !${Bool[${Me.Sitting}]} && !${Me.Casting.ID} && !${Me.Moving} && !${Me.CombatState.Equal[combat]} && (!${SpawnCount[npc los range 5 110 radius 50 zradius 15 targetable]})) {
+/if (${autosit} && !${Bool[${Me.Sitting}]} && !${Me.Casting.ID} && !${Me.Moving} && !${Me.CombatState.Equal[combat]} && (!${SpawnCount[npc los range 5 110 radius 50 zradius 15 targetable noalert 200]})) {
 	/if (${MeleeList.Find[${Me.Class.Name}]} && ${CanCast.Find[${Me.Class.Name}]} && !${SitTimer}) {
 		/if (${Me.PctEndurance}<21 && ${Me.CombatAbilityReady[${RespiteDisc}]} && !${Me.CombatState.Equal[Combat]} && !${Me.ActiveDisc.ID}) /disc ${RespiteDisc}
 		/if (${Me.PctEndurance}<75 && !${Me.Sitting}) /sit
 		/if (${Me.PctMana}<75 && !${Me.Sitting}) /sit
-		/call CreateTimer SitTimer 2m
-      } else /if (${MeleeList.Find[${Me.Class.Name}]} && !${CanCast.Find[${Me.Class.Name}]} && !${Me.Casting.ID} && ${Me.PctEndurance}<75 && !${SitTimer}) {
+		/call CreateTimer SitTimer 30s
+	} else /if (${MeleeList.Find[${Me.Class.Name}]} && !${CanCast.Find[${Me.Class.Name}]} && !${Me.Casting.ID} && ${Me.PctEndurance}<75 && !${SitTimer}) {
       	/if (${Me.PctEndurance}<21 && ${Me.CombatAbilityReady[${RespiteDisc}]} && !${Me.CombatState.Equal[Combat]}) /disc ${RespiteDisc}
          /sit
-		 /call CreateTimer SitTimer 2m
-      } else /if (!${MeleeList.Find[${Me.Class.Name}]} && ${CanCast.Find[${Me.Class.Name}]} && !${Me.Casting.ID} && ${Me.PctMana}<75) {
+		 /call CreateTimer SitTimer 30s
+	} else /if (!${MeleeList.Find[${Me.Class.Name}]} && ${CanCast.Find[${Me.Class.Name}]} && !${Me.Casting.ID} && ${Me.PctMana}<75) {
          /sit
-		 /call CreateTimer SitTimer 2m
-      }
-   }
-   /if (${MeleeList.Find[${Me.Class.Name}]} && ${CanCast.Find[${Me.Class.Name}]} && ${Me.PctEndurance}>99 && ${Me.PctMana}>99 && !${Window[SpellBookWnd].Open}) {
+		 /call CreateTimer SitTimer 30s
+	}
+}
+/if (${MeleeList.Find[${Me.Class.Name}]} && ${CanCast.Find[${Me.Class.Name}]} && ${Me.PctEndurance}>99 && ${Me.PctMana}>99 && !${Window[SpellBookWnd].Open}) {
       /stand
-   } else /if (${MeleeList.Find[${Me.Class.Name}]} && !${CanCast.Find[${Me.Class.Name}]} && ${Me.PctEndurance}>99) {
+} else /if (${MeleeList.Find[${Me.Class.Name}]} && !${CanCast.Find[${Me.Class.Name}]} && ${Me.PctEndurance}>99) {
       /stand
-   } else /if (!${MeleeList.Find[${Me.Class.Name}]} && ${CanCast.Find[${Me.Class.Name}]} && ${Me.PctMana}>99 && !${Window[SpellBookWnd].Open}) {
+} else /if (!${MeleeList.Find[${Me.Class.Name}]} && ${CanCast.Find[${Me.Class.Name}]} && ${Me.PctMana}>99 && !${Window[SpellBookWnd].Open}) {
       /stand
-   }
+}
 /return
 
 Sub Event_DoTell(string line,string person, string said)
@@ -655,6 +679,12 @@ Sub CheckBuffies(string MySub)
 	/if (${Window[ConfirmationDialogBox].Child[CD_TextOutput].Text.Find[Blessing of Resurrection]}) /call Wait4rez
 }
 
+/if (${Window[Tradewnd].HisTradeReady}) {
+	/nomodkey /notify Tradewnd TRDW_Trade_Button leftmouseup
+	/delay 1s ${Cursor.ID}
+	/autoinv
+	/delay 1s !${Cursor.ID}
+}
 /return
 
 
@@ -671,7 +701,7 @@ Sub Wait4Rez
 /if (!${Window[ConfirmationDialogBox].Open}) /goto :rezmeffs
 /nomodkey /notify ConfirmationDialogBox Yes_Button leftmouseup
 /delay 1
-/if (${Window[RespawnWnd].Open}) /if (${Zone.Name.Equal[The Plane of War]}) {
+/if (${Window[RespawnWnd].Open}) /if (${Zone.ShortName.Equal[Powar]}) {
 	/nomodkey /notify RespawnWnd RW_OptionsList listselect 1
 } else {
 	/nomodkey /notify RespawnWnd RW_OptionsList listselect 2 
@@ -710,12 +740,13 @@ Sub BCBuff(string MySub)
 /varset MacroState BCBuffs
 /varset BcClients ${NetBots.Client} 
 /varset BcClients2 ${Math.Calc[${BcClients.Count[ ]}+1]}
+/call CreateTimer BCBuffTimer 25S
 /if (${UseReverseBcOrder}) /goto :Reverse
 	/for X 1 to ${BcClients2}
-  	/if (!${NetBots[${BcClients.Arg[${X}]}].InZone} || ${Spawn[pc ${NetBots[${BcClients.Arg[${X}]}].Name}].Distance} > 150) /next X	
+  	/if (!${NetBots[${BcClients.Arg[${X}]}].InZone} || ${Spawn[pc ${NetBots[${BcClients.Arg[${X}]}].Name}].Distance} > 100) /next X	
     /for b 1 to ${DoBcBuffTotal}  
      /varset ignorelist ${Ini[${iniName},"BCBuffs","DoBCBuffIgnoreClass${b}"]}
-     /if (!${NetBots[${BcClients.Arg[${X}]}].Buff.Find[${Spell[${DoBCBuff${b}}].ID}]} && ${Me.PctMana}> ${DoBCBuffMana${b}} && !${ignorelist.Find[${NetBots[${BcClients.Arg[${X}]}].Class}]} && ${Me.CurrentMana}>${Spell[${DoBCBuff${b}}].Mana} && ${NetBots[${BcClients.Arg[${X}]}].Stacks[${Spell[${DoBCBuff${b}}].ID}]}) {     
+     /if (!${NetBots[${BcClients.Arg[${X}]}].Buff.Find[${Spell[${DoBCBuff${b}}].ID}]} && ${Me.PctMana}> ${DoBCBuffMana${b}} && !${ignorelist.Find[${NetBots[${BcClients.Arg[${X}]}].Class}]} && ${Me.CurrentMana}>${Spell[${DoBCBuff${b}}].Mana} && ${NetBots[${BcClients.Arg[${X}]}].Stacks[${Spell[${DoBCBuff${b}}].ID}]}) { 
 		/call CastSpell "${DoBCBuffCast${b}}" ${BuffGem} ${NetBots[${BcClients.Arg[${X}]}].ID} checkall 	
      	/return     
 	}
@@ -754,6 +785,7 @@ Sub Irc
 
 Sub DeclareIniVar(string name,string varType,string section,string value,string alias)
 /if ( !${Defined[${name}]} ) /declare ${name} ${varType} outer
+/if (${value.Length}==0) /varset value ChangeMe
 /varset ${name} ${Ini[${iniName},${section},${name.Left[1].Upper}${name.Right[-1]},"${value}"]}
 /ini "${iniName}" "${section}" "${name.Left[1].Upper}${name.Right[-1]}" "${${name}}"
 /if ( (${Defined[alias]} && ${DoAlias}) || ( ${Defined[alias]} && ${Plugin[mq2alias].Name.Length} && !${Alias[${alias}]}) )  /squelch /alias ${alias} /echo set: ${name} ${section}
@@ -857,7 +889,7 @@ Sub CastSpell(MySpell,MyType,int MyTarget,MySub)
 	/if (${Me.Sitting}) /stand
 	/if (${MyTarget}!=0) /echo Casting ${MySpell} on ${Spawn[ID ${MyTarget}].CleanName}
 	/if (${MyTarget}==0 && ${Target.ID} && ${ChatVerbose}) /echo Casting ${MySpell} 
-	/if (${Me.Class.Name.NotEqual[bard]} || ${Me.AltAbility[${MySpell}].Spell.MyCastTime}>=0.5) {
+	/if (${Me.Class.Name.NotEqual[bard]} || ${Me.AltAbility[${MySpell}].Spell.MyCastTime}>=3) {
 		/call Cast "${MySpell}" ${MyType} 0 ${MySub}
 	} else {
 		/alt activate ${Me.AltAbility[${MySpell}].ID}
@@ -869,7 +901,7 @@ Sub CastSpell(MySpell,MyType,int MyTarget,MySub)
 	/if (${Me.Sitting}) /stand
 	/if (${MyTarget}!=0 && ${ChatVerbose}) /echo Casting ${MySpell} on ${Spawn[ID ${MyTarget}].CleanName}
 	/if (${MyTarget}==0 && ${Target.ID} && ${ChatVerbose}) /echo Casting ${MySpell} 
-	/if (${Me.Class.Name.NotEqual[bard]} || ${Me.AltAbility[${MySpell}].Spell.MyCastTime}>=0.5) {
+	/if (${Me.Class.Name.NotEqual[bard]} || ${Me.AltAbility[${MySpell}].Spell.MyCastTime}>=3) {
 		/call Cast "${MySpell}" ${MyType} 0 
 	} else {
 		/alt activate ${Me.AltAbility[${MySpell}].ID}
@@ -900,106 +932,106 @@ Sub AddTanks
 /declare Necros		int local
 /declare Bards		int local
 /declare Monks		int local
-/varset Warriors ${SpawnCount[pc warrior guild radius 300]}
-/varset SKS ${SpawnCount[pc shadowknight guild radius 300]}
-/varset Paladins ${SpawnCount[pc paladin guild radius 300]}
-/varset Rangers ${SpawnCount[pc Ranger guild radius 300]}
-/varset Zerkers ${SpawnCount[pc Berserker guild radius 300]}
-/varset Wizards ${SpawnCount[pc Wizard guild radius 300]}
-/varset Rogues ${SpawnCount[pc Rogue guild radius 300]}
-/varset Necros ${SpawnCount[pc Necromancer guild radius 300]}
-/varset Bards ${SpawnCount[pc Bard guild radius 300]}
-/varset Monks ${SpawnCount[pc Monk guild radius 300]}
+/varset Warriors ${SpawnCount[pc warrior raid radius 300]}
+/varset SKS ${SpawnCount[pc shadowknight raid radius 300]}
+/varset Paladins ${SpawnCount[pc paladin raid radius 300]}
+/varset Rangers ${SpawnCount[pc Ranger raid radius 300]}
+/varset Zerkers ${SpawnCount[pc Berserker raid radius 300]}
+/varset Wizards ${SpawnCount[pc Wizard raid radius 300]}
+/varset Rogues ${SpawnCount[pc Rogue raid radius 300]}
+/varset Necros ${SpawnCount[pc Necromancer raid radius 300]}
+/varset Bards ${SpawnCount[pc Bard raid radius 300]}
+/varset Monks ${SpawnCount[pc Monk raid radius 300]}
 /call ReturnCurrentGroup
 /if (${Me.Class.Name.Equal[shaman]}) /goto :shaman
 /if (${Warriors}) {
 /for x 1 to ${Warriors}
-	/if (${b} >9) /return
-	/if (${Macro.Return.Find[${NearestSpawn[${x}, pc warrior guild].Name}]}) /goto :skip1 
-	/xtarget set ${b} ${NearestSpawn[${x}, pc warrior guild]}
+	/if (${b} >12) /return
+	/if (${Macro.Return.Find[${NearestSpawn[${x}, pc warrior raid].Name}]}) /goto :skip1 
+	/xtarget set ${b} ${NearestSpawn[${x}, pc warrior raid]}
 	/varcalc b ${b}+1
 	:skip1
 	/next x
 	}
 /if (${SKS} && ${XHealKnights}) {
 /for x 1 to ${SKS}
-	/if (${b} >9) /return
-	/if (${Macro.Return.Find[${NearestSpawn[${x}, pc Shadowknight guild].Name}]}) /goto :skip2
-	/xtarget set ${b} ${NearestSpawn[${x}, pc shadowknight guild]}
+	/if (${b} >12) /return
+	/if (${Macro.Return.Find[${NearestSpawn[${x}, pc Shadowknight raid].Name}]}) /goto :skip2
+	/xtarget set ${b} ${NearestSpawn[${x}, pc shadowknight raid]}
 	/varcalc b ${b}+1
 	:skip2
 	/next x
 	}
 /if (${Paladins} && ${XHealKnights}) {
 /for x 1 to ${Paladins}
-	/if (${b} >9) /return
-	/if (${Macro.Return.Find[${NearestSpawn[${x}, pc paladin guild].Name}]}) /goto :skip3
-	/xtarget set ${b} ${NearestSpawn[${x}, pc paladin guild]}
+	/if (${b} >12) /return
+	/if (${Macro.Return.Find[${NearestSpawn[${x}, pc paladin raid].Name}]}) /goto :skip3
+	/xtarget set ${b} ${NearestSpawn[${x}, pc paladin raid]}
 	/varcalc b ${b}+1
 	:skip3
 	/next x
 	}
 :shaman
-/if (${Me.Class.Name.Equal[shaman]}) {
 /if (${Rangers}) {
-/for x 1 to ${Rangers}
-	/if (${b} >9) /return
-	/if (${Macro.Return.Find[${NearestSpawn[${x}, pc Ranger guild].Name}]}) /goto :skip4
-	/xtarget set ${b} ${NearestSpawn[${x}, pc Ranger guild]}
-	/varcalc b ${b}+1
-	:skip4
+	/for x 1 to ${Rangers}
+		/if (${b} >12) /return
+		/if (${Macro.Return.Find[${NearestSpawn[${x}, pc Ranger raid].Name}]}) /goto :skip4
+		/xtarget set ${b} ${NearestSpawn[${x}, pc Ranger raid]}
+		/varcalc b ${b}+1
+		:skip4
 	/next x
-	}
+}
+/if (${Me.Class.Name.Equal[shaman]}) {
 /if (${Zerkers}) {
 /for x 1 to ${Zerkers}
-	/if (${b} >9) /return
-	/if (${Macro.Return.Find[${NearestSpawn[${x}, pc Berserker guild].Name}]}) /goto :skip5
-	/xtarget set ${b} ${NearestSpawn[${x}, pc Berserker guild]}
+	/if (${b} >12) /return
+	/if (${Macro.Return.Find[${NearestSpawn[${x}, pc Berserker raid].Name}]}) /goto :skip5
+	/xtarget set ${b} ${NearestSpawn[${x}, pc Berserker raid]}
 	/varcalc b ${b}+1
 	:skip5
 	/next x
 	}
 /if (${Wizards}) {
 /for x 1 to ${Wizards}
-	/if (${b} >9) /return
-	/if (${Macro.Return.Find[${NearestSpawn[${x}, pc Wizard guild].Name}]}) /goto :skip6
-	/xtarget set ${b} ${NearestSpawn[${x}, pc Wizard guild]}
+	/if (${b} >12) /return
+	/if (${Macro.Return.Find[${NearestSpawn[${x}, pc Wizard raid].Name}]}) /goto :skip6
+	/xtarget set ${b} ${NearestSpawn[${x}, pc Wizard raid]}
 	/varcalc b ${b}+1
 	:skip6
 	/next x
 	}
 /if (${Rogues}) {
 /for x 1 to ${Rogues}
-	/if (${b} >9) /return
-	/if (${Macro.Return.Find[${NearestSpawn[${x}, pc Rogue guild].Name}]}) /goto :skip7
-	/xtarget set ${b} ${NearestSpawn[${x}, pc Rogue guild]}
+	/if (${b} >12) /return
+	/if (${Macro.Return.Find[${NearestSpawn[${x}, pc Rogue raid].Name}]}) /goto :skip7
+	/xtarget set ${b} ${NearestSpawn[${x}, pc Rogue raid]}
 	/varcalc b ${b}+1
 	:skip7
 	/next x
 	}
 /if (${Necros}) {
 /for x 1 to ${Necros}
-	/if (${b} >9) /return
-	/if (${Macro.Return.Find[${NearestSpawn[${x}, pc Necromancer guild].Name}]}) /goto :skip8
-	/xtarget set ${b} ${NearestSpawn[${x}, pc Necromancer guild]}
+	/if (${b} >12) /return
+	/if (${Macro.Return.Find[${NearestSpawn[${x}, pc Necromancer raid].Name}]}) /goto :skip8
+	/xtarget set ${b} ${NearestSpawn[${x}, pc Necromancer raid]}
 	/varcalc b ${b}+1
 	:skip8
 	/next x
 	}
 /if (${Bards}) {
 /for x 1 to ${Bards}
-	/if (${b} >9) /return
-	/if (${Macro.Return.Find[${NearestSpawn[${x}, pc Bard guild].Name}]}) /goto :skip9
-	/xtarget set ${b} ${NearestSpawn[${x}, pc Bard guild]}
+	/if (${b} >12) /return
+	/if (${Macro.Return.Find[${NearestSpawn[${x}, pc Bard raid].Name}]}) /goto :skip9
+	/xtarget set ${b} ${NearestSpawn[${x}, pc Bard raid]}
 	/varcalc b ${b}+1
 	:skip9
 	/next x
 	}
 /if (${Monks}) {
 /for x 1 to ${Monks}
-	/if (${b} >9) /return
-	/if (${Macro.Return.Find[${NearestSpawn[${x}, pc Monk guild].Name}]}) /goto :skip9
-	/xtarget set ${b} ${NearestSpawn[${x}, pc Monk guild]}
+	/if (${b} >12) /return
+	/if (${Macro.Return.Find[${NearestSpawn[${x}, pc Monk raid].Name}]}) /goto :skip9
+	/xtarget set ${b} ${NearestSpawn[${x}, pc Monk raid]}
 	/varcalc b ${b}+1
 	:skip9
 	/next x
@@ -1027,7 +1059,7 @@ Sub CheckTanks
 }
 /next X
 |--------Looks for Tanks in the Raid to add to the extended window.
-/if (${Raid.Members} && !${AddTankTimer}) {
+/if (${Raid.Members} && !${AddTankTimer} && !${ProtectInsideRaid}) {
 	/call AddTanks
 	/call CreateTimer AddTankTimer
 	/varset AddTankTimer 60s
@@ -1044,6 +1076,19 @@ Sub CheckTanks
 	}
 	/next X
 	/call CreateTimer ProtectGroupTimer 300s
+}
+|--------Looks for Players Inside the Raid when in a raid to add to Xtarget so they can be healed.
+/if (${Raid.Members} && ${ProtectInsideRaid} && !${ProtectInsideRaidTimer}) {
+	/varset i 1
+	/varset X 1
+	/declare HowMany int local ${Math.Calc[${ProtectInsideRaidPlayersList.Count[|]}-1]}
+	/for X 1 to ${HowMany}
+	/if (${Spawn[${ProtectInsideRaidPlayersList.Arg[${X},|]}].ID} && !${Group.Member[${ProtectInsideRaidPlayersList.Arg[${X},|]}].ID} && ${i} < 11) {
+		/xtarget set ${i} ${ProtectInsideRaidPlayersList.Arg[${X},|]}
+		/varcalc i ${i}+1
+	}
+	/next X
+	/call CreateTimer ProtectInsideRaidTimer 300s
 }
 |--------Looks for NPCs to add to Xtarget so they can be healed.
 /if (${Raid.Members} && ${ProtectNPC} && !${ProtectNPCTimer}) {
